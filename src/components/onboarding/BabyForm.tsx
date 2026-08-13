@@ -57,9 +57,15 @@ export const BabyForm: React.FC<BabyFormProps> = ({
     return '';
   };
 
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const minDate = new Date(today); minDate.setFullYear(today.getFullYear() - 6);
+
   const validateBirthDate = (date: Date) => {
-    if (date > new Date()) {
-      return 'Data de nascimento não pode ser no futuro';
+    if (date > today) {
+      return 'A data de nascimento não pode ser no futuro';
+    }
+    if (date < minDate) {
+      return 'O módulo bebê é para crianças de até 6 anos';
     }
     return '';
   };
@@ -246,7 +252,8 @@ export const BabyForm: React.FC<BabyFormProps> = ({
             {...(Platform.OS === 'android'
               ? { onValueChange: handleDateValueChange, onDismiss: handleDateDismiss }
               : { onChange: handleDateChange })}
-            maximumDate={new Date()}
+            minimumDate={minDate}
+            maximumDate={today}
           />
         )}
       </View>

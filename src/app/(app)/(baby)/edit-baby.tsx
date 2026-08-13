@@ -40,15 +40,30 @@ export default function EditBabyScreen() {
     setBirthDate(text);
   }
 
+  // Limites de data: mínimo = 6 anos atrás, máximo = hoje
+  const today     = new Date(); today.setHours(0, 0, 0, 0);
+  const minDate   = new Date(today); minDate.setFullYear(today.getFullYear() - 6);
+  const minStr    = minDate.toISOString().slice(0, 10);
+  const maxStr    = today.toISOString().slice(0, 10);
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Nome obrigatório', type === 'child' ? 'Por favor, informe o nome do filho.' : 'Por favor, informe o nome do bebê.');
       return;
     }
-    // Validação simples do formato da data
-    if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-      Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD (ex: 2024-03-15).');
-      return;
+    if (birthDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD (ex: 2024-03-15).');
+        return;
+      }
+      if (birthDate > maxStr) {
+        Alert.alert('Data inválida', 'A data de nascimento não pode ser no futuro.');
+        return;
+      }
+      if (birthDate < minStr) {
+        Alert.alert('Data inválida', 'O módulo bebê é para crianças de até 6 anos. Para filhos mais velhos, use o módulo Filhos.');
+        return;
+      }
     }
 
     try {
@@ -145,6 +160,8 @@ export default function EditBabyScreen() {
           <input
             type="date"
             value={birthDate}
+            min={minStr}
+            max={maxStr}
             onChange={(e) => setBirthDate(e.target.value)}
             style={{
               backgroundColor: Colors.bgCard,
