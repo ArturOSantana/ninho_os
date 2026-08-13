@@ -57,5 +57,5 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Compilar Build de Preview (Android APK & iOS)
-        run: eas build --platform all --profile preview --non-interactive
+      - name: Compilar Build de Preview (Android APK)
+        run: eas build --platform android --profile preview --non-interactive
