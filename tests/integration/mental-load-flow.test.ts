@@ -143,7 +143,8 @@ const NAMES     = { [USER_A]: 'Ana', [USER_B]: 'Bruno' };
 
 function weekBoundaries(): { since: Date; until: Date } {
   const until = new Date();
-  const since = new Date(until);
+  until.setMinutes(until.getMinutes() + 5); // Folga segura de +5 minutos no futuro para evitar perdas de milissegundos
+  const since = new Date();
   since.setDate(since.getDate() - 7);
   return { since, until };
 }
