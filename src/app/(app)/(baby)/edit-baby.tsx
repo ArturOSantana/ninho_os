@@ -35,11 +35,9 @@ export default function EditBabyScreen() {
   const [birthDate, setBirthDate] = useState(type === 'child' ? (paramBirthDate ?? '') : (currentBaby?.birth_date ?? ''));
   const [loading, setLoading] = useState(false);
 
-  // Formata entrada de data (YYYY-MM-DD) enquanto o usuário digita
+  // Aceita qualquer texto — valida apenas no save
   function handleBirthDateChange(text: string) {
-    // Remove tudo que não é número ou hífen
-    const clean = text.replace(/[^\d-]/g, '');
-    setBirthDate(clean);
+    setBirthDate(text);
   }
 
   const handleSave = async () => {
@@ -143,25 +141,49 @@ export default function EditBabyScreen() {
         <Text style={{ color: Colors.muted, fontSize: FontSize.sm, marginBottom: 6 }}>
           data de nascimento
         </Text>
-        <TextInput
-          value={birthDate}
-          onChangeText={handleBirthDateChange}
-          placeholder="AAAA-MM-DD"
-          placeholderTextColor={Colors.muted}
-          keyboardType="numeric"
-          maxLength={10}
-          style={{
-            backgroundColor: Colors.bgCard,
-            borderWidth: 1,
-            borderColor: Colors.border,
-            borderRadius: Radius.md,
-            paddingHorizontal: Spacing.lg,
-            paddingVertical: 14,
-            color: Colors.text,
-            fontSize: FontSize.lg,
-            marginBottom: Spacing.xl,
-          }}
-        />
+        {Platform.OS === 'web' ? (
+          <input
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            style={{
+              backgroundColor: Colors.bgCard,
+              border: `1px solid ${Colors.border}`,
+              borderRadius: Radius.md,
+              paddingLeft: Spacing.lg,
+              paddingRight: Spacing.lg,
+              paddingTop: 14,
+              paddingBottom: 14,
+              color: Colors.text,
+              fontSize: FontSize.lg,
+              marginBottom: Spacing.xl,
+              width: '100%',
+              display: 'block',
+              outline: 'none',
+              colorScheme: 'dark',
+            } as any}
+          />
+        ) : (
+          <TextInput
+            value={birthDate}
+            onChangeText={handleBirthDateChange}
+            placeholder="AAAA-MM-DD"
+            placeholderTextColor={Colors.muted}
+            keyboardType="numbers-and-punctuation"
+            maxLength={10}
+            style={{
+              backgroundColor: Colors.bgCard,
+              borderWidth: 1,
+              borderColor: Colors.border,
+              borderRadius: Radius.md,
+              paddingHorizontal: Spacing.lg,
+              paddingVertical: 14,
+              color: Colors.text,
+              fontSize: FontSize.lg,
+              marginBottom: Spacing.xl,
+            }}
+          />
+        )}
 
         <TouchableOpacity
           onPress={handleSave}
