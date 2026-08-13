@@ -1,25 +1,55 @@
 {
   "expo": {
-    "name": "ninho",
+    "name": "Ninho",
     "slug": "ninho",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/ninho-logo.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "ninho",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "app.ninho.family"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#1A1A2E",
+        "foregroundImage": "./assets/ninho-logo.png"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "app.ninho.family"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro",
+      "favicon": "./assets/ninho-logo.png",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-splash-screen",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/ninho-logo.png",
+          "color": "#E8760A"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Ninho precisa acessar suas fotos para adicionar foto do bebê.",
+          "cameraPermission": "O Ninho precisa acessar a câmera para tirar foto do bebê."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "router": {
+      "root": "src/app"
     }
   }
 }

@@ -1,0 +1,47 @@
+name: EAS Preview Build
+
+on:
+  push:
+    branches: [master, main] # Dispara builds automáticos ao enviar para master ou main
+
+jobs:
+  build:
+    name: Build Nativo (EAS Preview)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ninho # Define o diretório de execução para o subdiretório do projeto
+
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ninho/package-lock.json
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Rodar Verificação de Tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Executar Testes Automatizados (Jest)
+        run: npx jest --passWithNoTests --forceExit
+        env:
+          CI: true
+          EXPO_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key
+
+      - name: Configurar EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }} # Token de autenticação da Expo cadastrado nos Secrets
+
+      - name: Compilar Build de Preview (Android APK & iOS)
+        run: eas build --platform all --profile preview --non-interactive
