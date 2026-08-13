@@ -192,9 +192,9 @@ describe('Fase 3 — Módulo Bebê: fluxo principal (UC011–UC014)', () => {
   // ── UC014 — Timeline do dia ──────────────────────────────────────
   describe('UC014 — Visualizar histórico do dia', () => {
     it('lista registros de hoje ordenados do mais recente ao mais antigo', () => {
-      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'feeding', started_at: makeTimestamp(120) });
-      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'diaper',  started_at: makeTimestamp(60) });
-      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'sleep',   started_at: makeTimestamp(10) });
+      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'feeding', started_at: makeTimestamp(5) });
+      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'diaper',  started_at: makeTimestamp(3) });
+      store.insert({ baby_id: BABY_ID, family_id: FAMILY_ID, created_by: USER_ID, type: 'sleep',   started_at: makeTimestamp(1) });
 
       const today = store.findTodayByBaby(BABY_ID);
       expect(today).toHaveLength(3);
