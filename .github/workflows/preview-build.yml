@@ -1,17 +1,19 @@
-name: EAS Preview Build
+name: CI/CD - EAS Preview Build
 
 on:
   push:
-    branches: [master, main] # Dispara builds automáticos ao enviar para master ou main
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
 
 jobs:
-  build:
-    name: Build Nativo (EAS Preview)
+  test:
+    name: Typecheck & Tests
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: ninho # Define o diretório de execução para o subdiretório do projeto
+        working-directory: ninho
 
     steps:
       - name: Checkout Código
@@ -21,8 +23,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: ./ninho/package-lock.json
 
       - name: Instalar Dependências
         run: npm ci
@@ -37,11 +37,33 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           EXPO_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key
 
+  eas-build:
+    name: Build Nativo (EAS Preview)
+    needs: test # Só inicia se o job 'test' passar com sucesso
+    if: github.event_name == 'push' # Roda apenas em pushes diretos na branch principal (não em PRs)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ninho
+
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar Dependências
+        run: npm ci
+
       - name: Configurar EAS CLI
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }} # Token de autenticação da Expo cadastrado nos Secrets
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Compilar Build de Preview (Android APK & iOS)
         run: eas build --platform all --profile preview --non-interactive
