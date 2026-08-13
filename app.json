@@ -16,7 +16,10 @@
         "backgroundColor": "#1A1A2E",
         "foregroundImage": "./assets/ninho-logo.png"
       },
-      "package": "app.ninho.family"
+      "package": "app.ninho.family",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -50,6 +53,12 @@
     },
     "router": {
       "root": "src/app"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a26a938d-adf9-4716-bd4e-cf03f76d98ac"
+      }
+    },
+    "owner": "artur.santana"
   }
 }
