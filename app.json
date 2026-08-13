@@ -9,7 +9,10 @@
     "scheme": "ninho",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.ninho.family"
+      "bundleIdentifier": "app.ninho.family",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
