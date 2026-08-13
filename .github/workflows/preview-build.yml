@@ -11,10 +11,6 @@ jobs:
     name: Typecheck & Tests
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ninho
-
     steps:
       - name: Checkout Código
         uses: actions/checkout@v4
@@ -42,10 +38,6 @@ jobs:
     needs: test # Só inicia se o job 'test' passar com sucesso
     if: github.event_name == 'push' # Roda apenas em pushes diretos na branch principal (não em PRs)
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ninho
 
     steps:
       - name: Checkout Código
