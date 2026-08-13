@@ -120,7 +120,7 @@ function Sidebar() {
   );
 
   // Segmento ativo — ex: "(dashboard)"
-  const activeKey = segments[1] as string | undefined;
+  const activeKey = (segments as string[])[1] as string | undefined;
 
   function isActive(key: string) {
     return activeKey === key;
