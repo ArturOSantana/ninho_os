@@ -1,13 +1,14 @@
 // src/components/ui/Input.tsx
 import React, { useState } from 'react';
 import { TextInput, TextInputProps, View, Text, ViewStyle } from 'react-native';
-import { Colors, Radius } from '@/constants/theme';
+import { Colors, Radius, FontSize } from '@/constants/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   hint?: string;
   rightElement?: React.ReactNode;
+  leftElement?: React.ReactNode;
   containerStyle?: ViewStyle;
 }
 
@@ -16,62 +17,72 @@ export function Input({
   error,
   hint,
   rightElement,
+  leftElement,
   containerStyle,
   style,
   ...props
 }: InputProps) {
   const [focused, setFocused] = useState(false);
 
+  const borderColor = error
+    ? Colors.error
+    : focused
+    ? Colors.primary
+    : Colors.border;
+
   return (
     <View style={[{ marginBottom: 16 }, containerStyle]}>
       {label ? (
-        <Text
-          style={{
-            color: Colors.muted,
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.6,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }}
-        >
+        <Text style={{
+          color:          Colors.muted,
+          fontSize:       FontSize.xs,
+          fontWeight:     '500',
+          letterSpacing:  0.5,
+          textTransform:  'uppercase',
+          marginBottom:   6,
+        }}>
           {label}
         </Text>
       ) : null}
 
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: Colors.card,
-          borderRadius: Radius.md,
-          borderWidth: 1.5,
-          borderColor: error ? Colors.error : focused ? Colors.primary : Colors.border,
-          paddingHorizontal: 14,
-        }}
-      >
+      <View style={{
+        flexDirection:    'row',
+        alignItems:       'center',
+        backgroundColor:  Colors.bgCard,
+        borderRadius:     Radius.md,
+        borderWidth:      1,
+        borderColor,
+        paddingHorizontal: 12,
+        height:           46,
+      }}>
+        {leftElement ? (
+          <View style={{ marginRight: 8 }}>{leftElement}</View>
+        ) : null}
         <TextInput
-          style={[
-            {
-              flex: 1,
-              color: Colors.text,
-              fontSize: 15,
-              paddingVertical: 14,
-            },
-            style,
-          ]}
-          placeholderTextColor={Colors.border}
+          style={[{
+            flex:          1,
+            color:         Colors.text,
+            fontSize:      FontSize.md,
+            paddingVertical: 0,
+          }, style]}
+          placeholderTextColor={Colors.textDisabled}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           {...props}
         />
-        {rightElement}
+        {rightElement ? (
+          <View style={{ marginLeft: 8 }}>{rightElement}</View>
+        ) : null}
       </View>
 
       {error ? (
-        <Text style={{ color: Colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>
+        <Text style={{ color: Colors.error, fontSize: FontSize.xs, marginTop: 4 }}>
+          {error}
+        </Text>
       ) : hint ? (
-        <Text style={{ color: Colors.muted, fontSize: 12, marginTop: 4 }}>{hint}</Text>
+        <Text style={{ color: Colors.muted, fontSize: FontSize.xs, marginTop: 4 }}>
+          {hint}
+        </Text>
       ) : null}
     </View>
   );

@@ -1,12 +1,5 @@
 // src/app/(app)/(dashboard)/index.tsx
-// Dashboard v2 — direção visual do handoff:
-//   • Marca da raposa SVG + wordmark "ninho" em serif itálico no header
-//   • Saudação em serif 23px (voz de destaque)
-//   • Card de destaque com border-radius blob assimétrico
-//   • Cards de métricas escalonados (stagger de margin-top)
-//   • FAB circular/blob no lugar de CTA de largura total
-//   • Skeleton pulsante no primeiro carregamento
-//   • Badge "dados podem estar desatualizados" em caso de erro
+// Dashboard v3 — design moderno, responsivo (web/mobile)
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -17,6 +10,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import Svg, { Polygon, Path, Ellipse } from 'react-native-svg';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -24,13 +18,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   IconBabyBottle,
   IconHeart,
-  IconChecklist,
-  IconCalendar,
+  IconCheckbox,
+  IconCalendarEvent,
   IconPlus,
   IconAlertCircle,
   IconX,
   IconEdit,
   IconStar,
+  IconShoppingCart,
+  IconArrowRight,
 } from '@tabler/icons-react-native';
 import { useFamily, useAgenda, useTasks, useShopping, useMentalLoad, useBabyRecords } from '@/hooks';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
@@ -39,302 +35,198 @@ import { Colors, Radius, Spacing, FontSize } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import { TutorialOverlay } from '@/components/ui/TutorialOverlay';
 import { useTutorial } from '@/hooks/useTutorial';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
-// ─── Tempo relativo da última mamada ────────────────────────────
+// ─── Utilitários ────────────────────────────────────────────────
 function formatRelative(iso: string | undefined): string {
-  if (!iso) return '—';
-  const diffMs = Date.now() - new Date(iso).getTime();
-  if (diffMs < 0) return '—';
-  const totalMin = Math.floor(diffMs / 60_000);
-  if (totalMin < 1)  return 'agora';
-  if (totalMin < 60) return `há ${totalMin}min`;
-  const h   = Math.floor(totalMin / 60);
-  const min = totalMin % 60;
-  return min > 0 ? `há ${h}h${min}min` : `há ${h}h`;
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1)   return 'agora';
+  if (mins < 60)  return `${mins}min atrás`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24)   return `${hrs}h atrás`;
+  return `${Math.round(hrs / 24)}d atrás`;
 }
 
-// ─── Skeleton pulsante ──────────────────────────────────────────
-// Anima opacity 0.35 ↔ 0.7 em loop enquanto carrega.
-// Cada instância recebe um delay para criar stagger natural.
-function SkeletonRect({
-  width,
-  height,
-  borderRadius = 8,
-  delay = 0,
-  style,
-}: {
-  width: number | string;
-  height: number;
-  borderRadius?: number;
-  delay?: number;
-  style?: object;
-}) {
-  const opacity = useRef(new Animated.Value(0.35)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7,  duration: 500, delay, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.35, duration: 500, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [opacity, delay]);
-
-  return (
-    <Animated.View
-      style={[
-        {
-          width,
-          height,
-          borderRadius,
-          backgroundColor: Colors.border,
-          opacity,
-        },
-        style,
-      ]}
-    />
-  );
-}
-
-// Skeleton do card de destaque (blob)
-function SkeletonHighlight() {
-  return (
-    <View
-      style={{
-        backgroundColor: Colors.bgCard,
-        borderTopLeftRadius: 38,
-        borderTopRightRadius: 62,
-        borderBottomRightRadius: 58,
-        borderBottomLeftRadius: 42,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        padding: Spacing.xl,
-        minHeight: 120,
-        marginBottom: Spacing.lg,
-        gap: 10,
-      }}
-    >
-      <SkeletonRect width={90} height={10} borderRadius={5} delay={0} />
-      <SkeletonRect width="85%" height={22} borderRadius={6} delay={80} />
-      <SkeletonRect width="60%" height={14} borderRadius={5} delay={160} />
-    </View>
-  );
-}
-
-// Skeleton dos 4 cards de métrica
-function SkeletonMetrics() {
-  const stagger = [0, 16, 6, 0];
-  return (
-    <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg }}>
-      {stagger.map((mt, i) => (
-        <View
-          key={i}
-          style={{
-            flex: 1,
-            backgroundColor: Colors.bgCard,
-            borderTopLeftRadius: 50,
-            borderTopRightRadius: 50,
-            borderBottomRightRadius: 42,
-            borderBottomLeftRadius: 58,
-            borderWidth: 1,
-            borderColor: Colors.border,
-            padding: Spacing.md,
-            alignItems: 'center',
-            marginTop: mt,
-            minHeight: 88,
-            justifyContent: 'center',
-            gap: 6,
-          }}
-        >
-          <SkeletonRect width={18} height={18} borderRadius={9} delay={i * 40} />
-          <SkeletonRect width={32} height={8}  borderRadius={4} delay={i * 40 + 60} />
-          <SkeletonRect width={40} height={14} borderRadius={5} delay={i * 40 + 120} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// ─── Badge "dados podem estar desatualizados" ───────────────────
-function StaleBadge() {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: Colors.bgCard,
-        borderRadius: Radius.sm,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 4,
-        alignSelf: 'flex-start',
-        marginBottom: Spacing.md,
-      }}
-      accessible
-      accessibilityLabel="Dados podem estar desatualizados"
-    >
-      <IconAlertCircle size={12} color={Colors.muted} />
-      <Text style={{ color: Colors.muted, fontSize: FontSize.xs }}>
-        dados podem estar desatualizados
-      </Text>
-    </View>
-  );
-}
-
-// ─── Componente da raposa (marca) ──────────────────────────────
-function FoxMark({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Polygon points="20,10 45,50 10,45" fill="#e8720c" />
-      <Polygon points="80,10 55,50 90,45" fill="#e8720c" />
-      <Path
-        d="M50,30 C70,30 85,50 82,72 C79,92 65,100 50,100 C35,100 21,92 18,72 C15,50 30,30 50,30 Z"
-        fill="#e8720c"
-      />
-      <Path
-        d="M50,55 C62,55 70,66 68,80 C66,92 58,98 50,99 C42,98 34,92 32,80 C30,66 38,55 50,55 Z"
-        fill="#f5d9b0"
-      />
-      <Ellipse cx={40} cy={62} rx={3.2} ry={4.2} fill="#0d1b2a" />
-      <Ellipse cx={60} cy={62} rx={3.2} ry={4.2} fill="#0d1b2a" />
-      <Polygon points="46,85 54,85 50,92" fill="#0d1b2a" />
-    </Svg>
-  );
-}
-
-// ─── Utilitários ───────────────────────────────────────────────
 function greeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'bom dia';
-  if (h < 18) return 'boa tarde';
-  return 'boa noite';
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
 }
 
-// ─── Card de destaque — blob assimétrico ───────────────────────
-function HighlightCard({
-  eyebrow,
-  title,
-  subtitle,
-  badge,
-  onPress,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle?: string;
-  badge?: string;
-  onPress?: () => void;
+// ─── Skeleton ───────────────────────────────────────────────────
+function SkeletonRect({ width, height, borderRadius = 8, style }: {
+  width: number | string; height: number; borderRadius?: number; style?: any;
 }) {
+  const anim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.8, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
   return (
-    <TouchableOpacity
-      activeOpacity={0.82}
-      onPress={onPress}
-      style={{
-        backgroundColor: Colors.bgCard,
-        borderTopLeftRadius: 38,
-        borderTopRightRadius: 62,
-        borderBottomRightRadius: 58,
-        borderBottomLeftRadius: 42,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        padding: Spacing.xl,
-        minHeight: 120,
-        marginBottom: Spacing.lg,
-      }}
-    >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm }}>
-        <Text style={{ color: Colors.tertiary, fontSize: FontSize.xs, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-          {eyebrow}
-        </Text>
-        {badge ? (
-          <View style={{ backgroundColor: Colors.primary + '22', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 }}>
-            <Text style={{ color: Colors.primary, fontSize: FontSize.xs, fontWeight: '600' }}>{badge}</Text>
-          </View>
-        ) : null}
-      </View>
-      <Text
-        style={{ color: Colors.text, fontSize: 22, fontFamily: 'Georgia', marginBottom: subtitle ? 6 : 0, lineHeight: 28 }}
-        numberOfLines={2}
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={{ color: Colors.muted, fontSize: FontSize.sm, lineHeight: 18 }} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </TouchableOpacity>
+    <Animated.View style={[
+      { width: width as any, height, borderRadius, backgroundColor: Colors.border, opacity: anim },
+      style,
+    ]} />
   );
 }
 
-// ─── Card de métrica de apoio ───────────────────────────────────
-// Cada card tem border-radius blob DIFERENTE — assimétrico, não círculo uniforme.
-// Os valores abaixo cobrem 4 variações para stagger visual.
-const METRIC_RADII: Array<[number, number, number, number]> = [
-  [50, 34, 46, 58], // card 0 — pendulo esquerda-cima
-  [38, 54, 40, 50], // card 1 — pendulo direita-baixo
-  [46, 50, 56, 36], // card 2 — pendulo direita-cima
-  [54, 40, 44, 62], // card 3 — pendulo esquerda-baixo
-];
+// ─── FadeSlide — entrada suave com stagger ───────────────────────
+/**
+ * Envolve um bloco com animação fade + slide-up ao montar.
+ * `index` define o delay: cada unidade adiciona 40ms.
+ */
+function FadeSlide({ children, index = 0 }: { children: React.ReactNode; index?: number }) {
+  const opacity   = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(14)).current;
 
-function MetricCard({
+  useEffect(() => {
+    const delay = index * 40;
+    Animated.parallel([
+      Animated.timing(opacity,    { toValue: 1, duration: 260, delay, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 260, delay, useNativeDriver: true }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+// ─── Stat card ──────────────────────────────────────────────────
+function StatCard({
   icon,
   label,
   value,
-  marginTop = 0,
-  radiusIndex = 0,
+  accent,
   onPress,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  marginTop?: number;
-  radiusIndex?: number;
+  icon:    React.ReactNode;
+  label:   string;
+  value:   string;
+  accent?: string;
   onPress?: () => void;
 }) {
-  const [tl, tr, br, bl] = METRIC_RADII[radiusIndex % METRIC_RADII.length];
   return (
     <TouchableOpacity
-      activeOpacity={0.82}
       onPress={onPress}
+      activeOpacity={onPress ? 0.75 : 1}
       style={{
-        flex: 1,
+        flex:            1,
         backgroundColor: Colors.bgCard,
-        borderTopLeftRadius: tl,
-        borderTopRightRadius: tr,
-        borderBottomRightRadius: br,
-        borderBottomLeftRadius: bl,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        padding: Spacing.md,
-        alignItems: 'center',
-        marginTop,
-        minHeight: 88,
-        justifyContent: 'center',
-        gap: 6,
+        borderRadius:    Radius.lg,
+        borderWidth:     1,
+        borderColor:     Colors.border,
+        padding:         16,
+        minWidth:        0,
       }}
     >
-      {icon}
-      <Text style={{ color: Colors.muted, fontSize: FontSize.xs, textTransform: 'uppercase', letterSpacing: 0.6, textAlign: 'center' }}>
+      <View style={{
+        width:           32,
+        height:          32,
+        borderRadius:    8,
+        backgroundColor: accent ? accent + '18' : Colors.bgPage,
+        alignItems:      'center',
+        justifyContent:  'center',
+        marginBottom:    12,
+      }}>
+        {icon}
+      </View>
+      <Text style={{
+        color:      Colors.muted,
+        fontSize:   FontSize.xs,
+        fontWeight: '500',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        marginBottom: 4,
+      }} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={{ color: Colors.text, fontSize: FontSize.xl, fontWeight: '600', textAlign: 'center' }}>
+      <Text style={{
+        color:         accent ?? Colors.text,
+        fontSize:      FontSize.xxl,
+        fontWeight:    '700',
+        letterSpacing: -0.5,
+      }}>
         {value}
       </Text>
     </TouchableOpacity>
   );
 }
 
-// ─── Tela ───────────────────────────────────────────────────────
+// ─── Quick action ────────────────────────────────────────────────
+function QuickAction({ icon, label, onPress }: {
+  icon: React.ReactNode; label: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={{
+        flex:           1,
+        alignItems:     'center',
+        gap:            8,
+        paddingVertical: 14,
+        backgroundColor: Colors.bgCard,
+        borderRadius:    Radius.lg,
+        borderWidth:     1,
+        borderColor:     Colors.border,
+      }}
+    >
+      {icon}
+      <Text style={{
+        color:      Colors.muted,
+        fontSize:   FontSize.xs,
+        fontWeight: '500',
+        textAlign:  'center',
+      }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Badge de dado stale ─────────────────────────────────────────
+function StaleBadge() {
+  return (
+    <View style={{
+      flexDirection:  'row',
+      alignItems:     'center',
+      gap:            6,
+      backgroundColor: Colors.amberBg,
+      borderWidth:    1,
+      borderColor:    Colors.amber + '40',
+      borderRadius:   Radius.sm,
+      padding:        8,
+      marginBottom:   Spacing.md,
+    }}>
+      <IconAlertCircle size={14} color={Colors.amber} />
+      <Text style={{ color: Colors.amber, fontSize: FontSize.xs }}>
+        Alguns dados podem estar desatualizados
+      </Text>
+    </View>
+  );
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────
 export default function DashboardScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router  = useRouter();
+  const insets  = useSafeAreaInsets();
+  const { isDesktop } = useBreakpoint();
 
   const { family, currentBaby, babies, setCurrentBaby } = useFamily();
-  const profile = useAuthStore((s) => s.profile);
+  const profile  = useAuthStore((s) => s.profile);
   const { members, load: loadMembers } = useFamilyMembers(family?.id);
 
   const [selectedModalItem, setSelectedModalItem] = useState<{
@@ -344,115 +236,74 @@ export default function DashboardScreen() {
     birth_date?: string;
   } | null>(null);
 
-  // Hooks de dados — todos com loading/error para controle de skeleton e stale badge
-  const { events, loading: loadingAgenda, error: errorAgenda } = useAgenda(family?.id ?? '');
-  const { tasks, loading: loadingTasks, error: errorTasks, loadTasks } = useTasks(family?.id ?? '');
-  const { pendingItems, loading: loadingShopping, error: errorShopping, loadItems } = useShopping(family?.id ?? '');
+  const { events,       loading: loadingAgenda,   error: errorAgenda   } = useAgenda(family?.id ?? '');
+  const { tasks,        loading: loadingTasks,    error: errorTasks,    loadTasks   } = useTasks(family?.id ?? '');
+  const { pendingItems, loading: loadingShopping, error: errorShopping, loadItems  } = useShopping(family?.id ?? '');
   const { summary: mentalSummary, loading: loadingMental, error: errorMental } = useMentalLoad();
-  const {
-    todayCount,
-    loading: loadingBaby,
-    error: errorBaby,
-    reload: reloadBabyRecords,
-  } = useBabyRecords(currentBaby?.id);
+  const { todayCount, loading: loadingBaby, error: errorBaby, reload: reloadBabyRecords } =
+    useBabyRecords(currentBaby?.id);
 
-  // Recarrega dados e membros da família sempre que a tela ganha foco
-  useFocusEffect(
-    useCallback(() => {
-      if (family?.id) {
-        loadMembers();
-        loadTasks();
-        loadItems();
-        reloadBabyRecords();
-      }
-    }, [family?.id, loadMembers, loadTasks, loadItems, reloadBabyRecords])
-  );
+  useFocusEffect(useCallback(() => {
+    if (family?.id) {
+      loadMembers();
+      loadTasks();
+      loadItems();
+      reloadBabyRecords();
+    }
+  }, [family?.id, loadMembers, loadTasks, loadItems, reloadBabyRecords]));
 
-  // Sincroniza o item selecionado no modal caso o nome ou data de nascimento dele mude no banco
   useEffect(() => {
     if (!selectedModalItem) return;
     if (selectedModalItem.type === 'baby') {
-      const updatedBaby = babies.find((b) => b.id === selectedModalItem.id);
-      if (updatedBaby && (updatedBaby.name !== selectedModalItem.name || updatedBaby.birth_date !== selectedModalItem.birth_date)) {
-        setSelectedModalItem({
-          id: updatedBaby.id,
-          type: 'baby',
-          name: updatedBaby.name,
-          birth_date: updatedBaby.birth_date,
-        });
+      const b = babies.find((b) => b.id === selectedModalItem.id);
+      if (b && (b.name !== selectedModalItem.name || b.birth_date !== selectedModalItem.birth_date)) {
+        setSelectedModalItem({ id: b.id, type: 'baby', name: b.name, birth_date: b.birth_date });
       }
     } else {
-      const updatedChild = members.find((m) => m.id === selectedModalItem.id);
-      if (updatedChild && (updatedChild.name !== selectedModalItem.name || updatedChild.birth_date !== selectedModalItem.birth_date)) {
-        setSelectedModalItem({
-          id: updatedChild.id,
-          type: 'child',
-          name: updatedChild.name,
-          birth_date: updatedChild.birth_date,
-        });
+      const m = members.find((m) => m.id === selectedModalItem.id);
+      if (m && (m.name !== selectedModalItem.name || m.birth_date !== selectedModalItem.birth_date)) {
+        setSelectedModalItem({ id: m.id, type: 'child', name: m.name, birth_date: m.birth_date });
       }
     }
   }, [babies, members, selectedModalItem]);
 
-  // Carrega tasks e shopping no mount (não têm autoload)
   useEffect(() => {
-    if (family?.id) {
-      loadTasks();
-      loadItems();
-    }
+    if (family?.id) { loadTasks(); loadItems(); }
   }, [family?.id, loadTasks, loadItems]);
 
-  // Primeiro carregamento: todos ainda sem dados → mostra skeleton
-  // Após o primeiro ciclo completo, erros posteriores mostram o badge stale.
-  const isFirstLoad =
-    loadingAgenda || loadingTasks || loadingShopping || loadingMental || loadingBaby;
-
-  // Há dados em cache (pelo menos uma fonte retornou algo)
-  const hasAnyData =
-    events.length > 0 || tasks.length > 0 || pendingItems.length > 0 || mentalSummary !== null;
-
-  // Stale: houve erro em alguma fonte mas já tínhamos dados antes
-  const hasError = !!(errorAgenda || errorTasks || errorShopping || errorMental || errorBaby);
+  const isFirstLoad   = loadingAgenda || loadingTasks || loadingShopping || loadingMental || loadingBaby;
+  const hasAnyData    = events.length > 0 || tasks.length > 0 || pendingItems.length > 0 || mentalSummary !== null;
+  const hasError      = !!(errorAgenda || errorTasks || errorShopping || errorMental || errorBaby);
   const showStaleBadge = hasError && hasAnyData;
 
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing,   setRefreshing]   = useState(false);
   const [babyInfoOpen, setBabyInfoOpen] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    Promise.all([loadTasks(), loadItems(), reloadBabyRecords()]).finally(() =>
-      setRefreshing(false)
-    );
+    Promise.all([loadTasks(), loadItems(), reloadBabyRecords()]).finally(() => setRefreshing(false));
   }, [loadTasks, loadItems, reloadBabyRecords]);
 
-  // Dados derivados
-  const nextEvent = events.find(
-    (e) => new Date(e.start_at) >= new Date(new Date().setHours(0, 0, 0, 0))
-  );
+  const nextEvent    = events.find((e) => new Date(e.start_at) >= new Date(new Date().setHours(0, 0, 0, 0)));
   const pendingCount = tasks.filter((t) => t.status !== 'done').length;
 
-  // Equilíbrio de carga mental — só exibe se há exatamente 2 membros com dados reais
   const [memberA, memberB] = mentalSummary?.members ?? [];
   const hasPartner = !!(memberA && memberB);
-  const pctA = hasPartner ? Math.round(memberA.percentage) : 0;
-  const pctB = hasPartner ? Math.round(memberB.percentage) : 0;
-
-  const highlightTitle    = nextEvent ? nextEvent.title : 'nada agendado — aproveite';
-  const highlightSubtitle = nextEvent
-    ? new Date(nextEvent.start_at).toLocaleDateString('pt-BR', {
-        weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-      })
-    : 'Use a agenda para organizar consultas, vacinas e encontros.';
+  const pctA       = hasPartner ? Math.round(memberA.percentage) : 0;
+  const pctB       = hasPartner ? Math.round(memberB.percentage) : 0;
 
   const tutorial = useTutorial('dashboard');
 
+  const topPadding = Platform.OS === 'web' ? 24 : insets.top + Spacing.lg;
+
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: Colors.bgPage }}>
       <TutorialOverlay
         visible={tutorial.visible}
         screenKey="dashboard"
         onDismiss={tutorial.dismiss}
       />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -464,102 +315,327 @@ export default function DashboardScreen() {
           />
         }
         contentContainerStyle={{
-          paddingTop: insets.top + Spacing.lg,
+          paddingTop:    topPadding,
           paddingBottom: insets.bottom + 90,
-          paddingHorizontal: Spacing.lg,
+          paddingHorizontal: isDesktop ? 32 : Spacing.lg,
+          maxWidth:      isDesktop ? 800 : undefined,
+          alignSelf:     isDesktop ? 'center' : undefined,
+          width:         isDesktop ? '100%' : undefined,
         }}
       >
-        {/* ── Header: raposa + wordmark + saudação ── */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: Spacing.xl }}>
-          <FoxMark size={28} />
-          <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 19, color: Colors.tertiary }}>
-            ninho
-          </Text>
+        {/* ── Header ── */}
+        <View style={{
+          flexDirection:  'row',
+          alignItems:     'center',
+          justifyContent: 'space-between',
+          marginBottom:   Spacing['2xl'],
+        }}>
+          <View>
+            <Text style={{
+              color:         Colors.text,
+              fontSize:      FontSize.xxl,
+              fontWeight:    '700',
+              letterSpacing: -0.5,
+            }}>
+              {greeting()}{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}
+            </Text>
+            <Text style={{
+              color:         Colors.muted,
+              fontSize:      FontSize.sm,
+              marginTop:     3,
+              textTransform: 'capitalize',
+            }}>
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
+          </View>
+
+          {/* Avatares da família */}
+          <View style={{ flexDirection: 'row', gap: -8 }}>
+            {members.filter((m) => m.role !== 'child').slice(0, 3).map((member, i) => (
+              <View key={member.id} style={{ zIndex: 10 - i }}>
+                <Avatar
+                  name={member.name}
+                  size={36}
+                  style={{
+                    borderWidth: 2,
+                    borderColor: Colors.bgPage,
+                  }}
+                />
+              </View>
+            ))}
+          </View>
         </View>
 
-        <Text style={{ fontFamily: 'Georgia', fontSize: 23, color: Colors.text, marginBottom: 3 }}>
-          {greeting()}{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}
-        </Text>
-        <Text style={{ color: Colors.muted, fontSize: FontSize.xs, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.lg }}>
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </Text>
+        {/* Stale badge */}
+        {showStaleBadge && <StaleBadge />}
 
-        {/* ── Avatares dos membros da família ── */}
-        {members.filter((m) => m.role !== 'child').length > 0 && (
-          <View style={{ flexDirection: 'row', gap: Spacing.lg, marginBottom: Spacing.xl }}>
-            {members.filter((m) => m.role !== 'child').map((member) => {
-              const isSelf = member.user_id === profile?.user_id;
-              return (
-                <TouchableOpacity
-                  key={member.id}
-                  onPress={isSelf && (currentBaby || members.some((m) => m.role === 'child')) ? () => {
-                    if (currentBaby) {
-                      setSelectedModalItem({
-                        id: currentBaby.id,
-                        type: 'baby',
-                        name: currentBaby.name,
-                        birth_date: currentBaby.birth_date,
-                      });
-                    } else {
-                      const firstChild = members.find((m) => m.role === 'child');
-                      if (firstChild) {
-                        setSelectedModalItem({
-                          id: firstChild.id,
-                          type: 'child',
-                          name: firstChild.name,
-                          birth_date: firstChild.birth_date,
-                        });
-                      }
-                    }
-                    setBabyInfoOpen(true);
-                  } : undefined}
-                  activeOpacity={isSelf && (currentBaby || members.some((m) => m.role === 'child')) ? 0.75 : 1}
-                  style={{ alignItems: 'center', gap: 6 }}
-                >
-                  <View style={{ position: 'relative' }}>
-                    <Avatar
-                      name={member.name}
-                      size={48}
-                      style={isSelf ? {
-                        borderWidth: 2,
-                        borderColor: Colors.primary,
-                      } : undefined}
-                    />
-                    {isSelf && (currentBaby || members.some((m) => m.role === 'child')) && (
-                      <View style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        right: 0,
-                        width: 18,
-                        height: 18,
-                        borderRadius: 9,
-                        backgroundColor: Colors.primary,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <IconBabyBottle size={10} color={Colors.onLight} />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={{ color: Colors.muted, fontSize: FontSize.xs }} numberOfLines={1}>
-                    {member.name.split(' ')[0]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* ── Próximo evento — card principal ── */}
+        {isFirstLoad && !hasAnyData ? (
+          <View style={{ gap: 8, marginBottom: Spacing.lg }}>
+            <SkeletonRect width="100%" height={90} borderRadius={14} />
           </View>
+        ) : (
+          <FadeSlide index={0}>
+          <TouchableOpacity
+            onPress={() => nextEvent
+              ? router.push(`/(app)/(agenda)?eventId=${nextEvent.id}` as never)
+              : router.push('/(app)/(agenda)' as never)
+            }
+            activeOpacity={0.78}
+            style={{
+              backgroundColor: Colors.primaryBg,
+              borderRadius:    Radius.lg,
+              borderWidth:     1,
+              borderColor:     Colors.primary + '30',
+              padding:         20,
+              marginBottom:    Spacing.lg,
+              flexDirection:   'row',
+              alignItems:      'center',
+              justifyContent:  'space-between',
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                color:         Colors.primary,
+                fontSize:      FontSize.xs,
+                fontWeight:    '600',
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                marginBottom:  6,
+              }}>
+                {nextEvent ? 'Próximo evento' : 'Sem eventos'}
+              </Text>
+              <Text style={{
+                color:      Colors.text,
+                fontSize:   FontSize.lg,
+                fontWeight: '600',
+              }} numberOfLines={1}>
+                {nextEvent ? nextEvent.title : 'Nenhum agendamento'}
+              </Text>
+              {nextEvent ? (
+                <Text style={{
+                  color:     Colors.muted,
+                  fontSize:  FontSize.sm,
+                  marginTop: 3,
+                }}>
+                  {new Date(nextEvent.start_at).toLocaleDateString('pt-BR', {
+                    weekday: 'short', day: '2-digit', month: 'short',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </Text>
+              ) : (
+                <Text style={{ color: Colors.muted, fontSize: FontSize.sm, marginTop: 3 }}>
+                  Use a agenda para organizar consultas e eventos
+                </Text>
+              )}
+            </View>
+            <IconArrowRight size={18} color={Colors.primary} style={{ marginLeft: 12 }} />
+          </TouchableOpacity>
+          </FadeSlide>
         )}
 
-        {/* ── Modal de informações do bebê/filhos ── */}
+        {/* ── Stats ── */}
+        {isFirstLoad && !hasAnyData ? (
+          <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg }}>
+            {[0, 1, 2].map((i) => <SkeletonRect key={i} width="33%" height={100} borderRadius={14} />)}
+          </View>
+        ) : (
+          <FadeSlide index={1}>
+          <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg }}>
+            {babies.length > 0 && (
+              <StatCard
+                icon={<IconBabyBottle size={16} color={Colors.coral} />}
+                label="bebê hoje"
+                value={String(todayCount)}
+                accent={Colors.coral}
+                onPress={() => router.push('/(app)/(baby)' as never)}
+              />
+            )}
+            <StatCard
+              icon={<IconCheckbox size={16} color={Colors.primary} />}
+              label="tarefas"
+              value={String(pendingCount)}
+              accent={pendingCount > 0 ? Colors.primary : Colors.success}
+              onPress={() => router.push('/(app)/(tasks)' as never)}
+            />
+            {hasPartner ? (
+              <StatCard
+                icon={<IconHeart size={16} color={Colors.secondary} />}
+                label="equilíbrio"
+                value={`${pctA}/${pctB}`}
+                accent={Math.abs(pctA - pctB) > 30 ? Colors.amber : Colors.success}
+                onPress={() => router.push('/(app)/(mental-load)' as never)}
+              />
+            ) : (
+              <StatCard
+                icon={<IconShoppingCart size={16} color={Colors.secondary} />}
+                label="compras"
+                value={String(pendingItems.length)}
+                accent={Colors.secondary}
+                onPress={() => router.push('/(app)/(shopping)' as never)}
+              />
+            )}
+          </View>
+          </FadeSlide>
+        )}
+
+        {/* ── Seção tarefas rápidas ── */}
+        {tasks.filter((t) => t.status === 'pending').length > 0 && (
+          <FadeSlide index={2}>
+          <View style={{
+            backgroundColor: Colors.bgCard,
+            borderRadius:    Radius.lg,
+            borderWidth:     1,
+            borderColor:     Colors.border,
+            marginBottom:    Spacing.lg,
+            overflow:        'hidden',
+          }}>
+            <View style={{
+              flexDirection:  'row',
+              alignItems:     'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: Spacing.lg,
+              paddingVertical:   14,
+              borderBottomWidth: 1,
+              borderBottomColor: Colors.border,
+            }}>
+              <Text style={{
+                color:      Colors.text,
+                fontSize:   FontSize.md,
+                fontWeight: '600',
+              }}>
+                Tarefas pendentes
+              </Text>
+              <TouchableOpacity onPress={() => router.push('/(app)/(tasks)' as never)}>
+                <Text style={{ color: Colors.primary, fontSize: FontSize.sm }}>
+                  Ver todas
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {tasks.filter((t) => t.status === 'pending').slice(0, 3).map((task, i, arr) => (
+              <TouchableOpacity
+                key={task.id}
+                onPress={() => router.push('/(app)/(tasks)' as never)}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection:     'row',
+                  alignItems:        'center',
+                  gap:               12,
+                  paddingHorizontal: Spacing.lg,
+                  paddingVertical:   12,
+                  borderBottomWidth: i < arr.length - 1 ? 1 : 0,
+                  borderBottomColor: Colors.border,
+                }}
+              >
+                <View style={{
+                  width:       18,
+                  height:      18,
+                  borderRadius: 4,
+                  borderWidth: 1.5,
+                  borderColor: Colors.borderMid,
+                }} />
+                <Text style={{
+                  color:    Colors.text,
+                  fontSize: FontSize.md,
+                  flex:     1,
+                }} numberOfLines={1}>
+                  {task.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          </FadeSlide>
+        )}
+
+        {/* ── Lista de compras ── */}
+        <FadeSlide index={3}>
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/(shopping)' as never)}
+          activeOpacity={0.78}
+          style={{
+            backgroundColor: Colors.bgCard,
+            borderRadius:    Radius.lg,
+            borderWidth:     1,
+            borderColor:     Colors.border,
+            padding:         Spacing.lg,
+            flexDirection:   'row',
+            alignItems:      'center',
+            justifyContent:  'space-between',
+            marginBottom:    Spacing.lg,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              width:           36,
+              height:          36,
+              borderRadius:    8,
+              backgroundColor: Colors.bgPage,
+              alignItems:      'center',
+              justifyContent:  'center',
+            }}>
+              <IconShoppingCart size={18} color={Colors.secondary} />
+            </View>
+            <View>
+              <Text style={{ color: Colors.text, fontSize: FontSize.md, fontWeight: '500' }}>
+                Lista de compras
+              </Text>
+              <Text style={{ color: Colors.muted, fontSize: FontSize.sm, marginTop: 2 }}>
+                {isFirstLoad && !hasAnyData
+                  ? '…'
+                  : pendingItems.length > 0
+                  ? `${pendingItems.length} item${pendingItems.length === 1 ? '' : 's'} pendente${pendingItems.length === 1 ? '' : 's'}`
+                  : 'Lista em ordem'
+                }
+              </Text>
+            </View>
+          </View>
+          <IconArrowRight size={16} color={Colors.muted} />
+        </TouchableOpacity>
+        </FadeSlide>
+
+        {/* ── Ações rápidas ── */}
+        <FadeSlide index={4}>
+        <Text style={{
+          color:         Colors.muted,
+          fontSize:      FontSize.xs,
+          fontWeight:    '600',
+          letterSpacing: 0.5,
+          textTransform: 'uppercase',
+          marginBottom:  10,
+        }}>
+          Ações rápidas
+        </Text>
+        <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg }}>
+          {babies.length > 0 && (
+            <QuickAction
+              icon={<IconBabyBottle size={20} color={Colors.coral} />}
+              label="Registrar bebê"
+              onPress={() => router.push('/(app)/(baby)' as never)}
+            />
+          )}
+          <QuickAction
+            icon={<IconCalendarEvent size={20} color={Colors.primary} />}
+            label="Novo evento"
+            onPress={() => router.push('/(app)/(agenda)/new-event' as never)}
+          />
+          <QuickAction
+            icon={<IconPlus size={20} color={Colors.success} />}
+            label="Nova tarefa"
+            onPress={() => router.push('/(app)/(tasks)/new-task' as never)}
+          />
+        </View>
+        </FadeSlide>
+
+        {/* ── Modal bebês/filhos ── */}
         {(currentBaby || members.some((m) => m.role === 'child')) && (
           <Modal
             visible={babyInfoOpen}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={() => setBabyInfoOpen(false)}
           >
             <TouchableOpacity
-              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}
               activeOpacity={1}
               onPress={() => setBabyInfoOpen(false)}
             >
@@ -567,27 +643,37 @@ export default function DashboardScreen() {
                 activeOpacity={1}
                 onPress={() => {}}
                 style={{
-                  backgroundColor: Colors.bgCard,
-                  borderTopLeftRadius: Radius.xl,
+                  backgroundColor:      Colors.bgCard,
+                  borderTopLeftRadius:  Radius.xl,
                   borderTopRightRadius: Radius.xl,
-                  borderWidth: 1,
-                  borderColor: Colors.border,
-                  padding: Spacing.lg,
+                  borderWidth:          1,
+                  borderColor:          Colors.border,
+                  padding:              Spacing.lg,
                 }}
               >
-                {/* Cabeçalho do modal */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg }}>
-                  <Text style={{ color: Colors.muted, fontSize: FontSize.xs, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                    seus filhos
+                {/* Header modal */}
+                <View style={{
+                  flexDirection:  'row',
+                  alignItems:     'center',
+                  justifyContent: 'space-between',
+                  marginBottom:   Spacing.lg,
+                }}>
+                  <Text style={{
+                    color:         Colors.muted,
+                    fontSize:      FontSize.xs,
+                    fontWeight:    '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}>
+                    Seus filhos
                   </Text>
                   <TouchableOpacity onPress={() => setBabyInfoOpen(false)}>
                     <IconX size={18} color={Colors.muted} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Chips: bebês + filhos (kids) + adicionar */}
+                {/* Chips */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.lg }}>
-                  {/* Bebês */}
                   {babies.map((baby) => {
                     const isActive = selectedModalItem?.id === baby.id;
                     return (
@@ -595,91 +681,71 @@ export default function DashboardScreen() {
                         key={baby.id}
                         onPress={() => {
                           setCurrentBaby(baby);
-                          setSelectedModalItem({
-                            id: baby.id,
-                            type: 'baby',
-                            name: baby.name,
-                            birth_date: baby.birth_date,
-                          });
+                          setSelectedModalItem({ id: baby.id, type: 'baby', name: baby.name, birth_date: baby.birth_date });
                         }}
                         style={{ alignItems: 'center', gap: 6 }}
                       >
                         <View style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 26,
-                          backgroundColor: isActive ? Colors.primary : Colors.bg,
-                          borderWidth: isActive ? 0 : 1,
-                          borderColor: Colors.border,
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          width:           52,
+                          height:          52,
+                          borderRadius:    26,
+                          backgroundColor: isActive ? Colors.primary : Colors.bgPage,
+                          borderWidth:     isActive ? 0 : 1,
+                          borderColor:     Colors.border,
+                          alignItems:      'center',
+                          justifyContent:  'center',
                         }}>
-                          <Text style={{ color: isActive ? Colors.onLight : Colors.text, fontSize: FontSize.md, fontWeight: '700' }}>
+                          <Text style={{ color: isActive ? '#fff' : Colors.text, fontSize: FontSize.md, fontWeight: '700' }}>
                             {baby.name.trim().split(' ').slice(0, 2).map((s: string) => s[0].toUpperCase()).join('')}
                           </Text>
                         </View>
                         <Text style={{ color: isActive ? Colors.text : Colors.muted, fontSize: FontSize.xs, fontWeight: isActive ? '600' : '400' }}>
                           {baby.name.split(' ')[0]}
                         </Text>
-                        <View style={{ position: 'absolute', bottom: 22, right: -2 }}>
-                          <IconBabyBottle size={12} color={isActive ? Colors.primary : Colors.muted} />
-                        </View>
                       </TouchableOpacity>
                     );
                   })}
-                  {/* Filhos (kids — role=child) */}
                   {members.filter((m) => m.role === 'child').map((kid) => {
                     const isKidActive = selectedModalItem?.id === kid.id;
                     return (
                       <TouchableOpacity
                         key={kid.id}
-                        onPress={() => {
-                          setSelectedModalItem({
-                            id: kid.id,
-                            type: 'child',
-                            name: kid.name,
-                            birth_date: kid.birth_date,
-                          });
-                        }}
+                        onPress={() => setSelectedModalItem({ id: kid.id, type: 'child', name: kid.name, birth_date: kid.birth_date })}
                         style={{ alignItems: 'center', gap: 6 }}
                       >
                         <View style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 26,
-                          backgroundColor: isKidActive ? Colors.primary : Colors.bg,
-                          borderWidth: isKidActive ? 0 : 1,
-                          borderColor: Colors.border,
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          width:           52,
+                          height:          52,
+                          borderRadius:    26,
+                          backgroundColor: isKidActive ? Colors.primary : Colors.bgPage,
+                          borderWidth:     isKidActive ? 0 : 1,
+                          borderColor:     Colors.border,
+                          alignItems:      'center',
+                          justifyContent:  'center',
                         }}>
-                          <Text style={{ color: isKidActive ? Colors.onLight : Colors.text, fontSize: FontSize.md, fontWeight: '700' }}>
+                          <Text style={{ color: isKidActive ? '#fff' : Colors.text, fontSize: FontSize.md, fontWeight: '700' }}>
                             {kid.name.trim().split(' ').slice(0, 2).map((s) => s[0].toUpperCase()).join('')}
                           </Text>
                         </View>
-                        <Text style={{ color: isKidActive ? Colors.text : Colors.muted, fontSize: FontSize.xs, fontWeight: isKidActive ? '600' : '400' }}>
+                        <Text style={{ color: isKidActive ? Colors.text : Colors.muted, fontSize: FontSize.xs }}>
                           {kid.name.split(' ')[0]}
                         </Text>
-                        <View style={{ position: 'absolute', bottom: 22, right: -2 }}>
-                          <IconStar size={12} color={isKidActive ? Colors.primary : Colors.secondary} />
-                        </View>
                       </TouchableOpacity>
                     );
                   })}
-                  {/* Botão adicionar */}
                   <TouchableOpacity
                     onPress={() => { setBabyInfoOpen(false); router.push('/(app)/(baby)' as never); }}
                     style={{ alignItems: 'center', gap: 6 }}
                   >
                     <View style={{
-                      width: 52,
-                      height: 52,
+                      width:       52,
+                      height:      52,
                       borderRadius: 26,
-                      backgroundColor: Colors.bg,
+                      backgroundColor: Colors.bgPage,
                       borderWidth: 1,
                       borderColor: Colors.border,
                       borderStyle: 'dashed',
-                      alignItems: 'center',
+                      alignItems:  'center',
                       justifyContent: 'center',
                     }}>
                       <IconPlus size={18} color={Colors.muted} />
@@ -688,13 +754,12 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Resumo do filho selecionado no modal */}
                 {selectedModalItem && (
                   <View style={{
-                    backgroundColor: Colors.bg,
-                    borderRadius: Radius.md,
-                    padding: Spacing.md,
-                    marginBottom: Spacing.md,
+                    backgroundColor: Colors.bgPage,
+                    borderRadius:    Radius.md,
+                    padding:         Spacing.md,
+                    marginBottom:    Spacing.md,
                   }}>
                     <Text style={{ color: Colors.muted, fontSize: FontSize.xs, marginBottom: 4 }}>mostrando</Text>
                     <Text style={{ color: Colors.text, fontSize: FontSize.md, fontWeight: '500' }}>
@@ -702,16 +767,12 @@ export default function DashboardScreen() {
                       {' · '}
                       {selectedModalItem.type === 'baby' ? 'módulo bebê' : 'módulo filho'}
                       {selectedModalItem.birth_date ? (
-                        <>
-                          {' · '}
-                          {Math.floor((Date.now() - new Date(selectedModalItem.birth_date).getTime()) / (7 * 24 * 60 * 60 * 1000))} sem.
-                        </>
+                        ` · ${Math.floor((Date.now() - new Date(selectedModalItem.birth_date).getTime()) / (7 * 24 * 60 * 60 * 1000))} sem.`
                       ) : null}
                     </Text>
                   </View>
                 )}
 
-                {/* Botão de editar — ação secundária separada baseada no selecionado */}
                 {selectedModalItem && (
                   <TouchableOpacity
                     onPress={() => {
@@ -721,22 +782,11 @@ export default function DashboardScreen() {
                       } else {
                         router.push({
                           pathname: '/(app)/(baby)/edit-baby',
-                          params: {
-                            type: 'child',
-                            id: selectedModalItem.id,
-                            name: selectedModalItem.name,
-                            birth_date: selectedModalItem.birth_date ?? '',
-                          },
+                          params: { type: 'child', id: selectedModalItem.id, name: selectedModalItem.name, birth_date: selectedModalItem.birth_date ?? '' },
                         } as never);
                       }
                     }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      paddingVertical: Spacing.sm,
-                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm }}
                   >
                     <IconEdit size={14} color={Colors.muted} />
                     <Text style={{ color: Colors.muted, fontSize: FontSize.xs }}>editar informações</Text>
@@ -746,132 +796,6 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </Modal>
         )}
-
-        {/* ── Badge stale — dados podem estar desatualizados ── */}
-        {showStaleBadge && <StaleBadge />}
-
-        {/* ── Skeleton no primeiro carregamento ── */}
-        {isFirstLoad && !hasAnyData ? (
-          <>
-            <SkeletonHighlight />
-            <SkeletonMetrics />
-          </>
-        ) : (
-          <>
-            {/* ── Card de destaque (blob) ── */}
-            <HighlightCard
-              eyebrow="próximo momento"
-              title={highlightTitle}
-              subtitle={highlightSubtitle}
-              badge={nextEvent ? 'hoje' : undefined}
-              onPress={() =>
-                nextEvent
-                  ? router.push(`/(app)/(agenda)?eventId=${nextEvent.id}` as never)
-                  : router.push('/(app)/(agenda)' as never)
-              }
-            />
-
-            {/* ── Métricas escalonadas — stagger de margin-top + blob assimétrico por índice ── */}
-            <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg }}>
-              {/* card 0 — bebê hoje: ícone destaque (primary laranja) */}
-              <MetricCard
-                icon={<IconBabyBottle size={18} color={Colors.primary} />}
-                label="bebê hoje"
-                value={String(todayCount)}
-                marginTop={0}
-                radiusIndex={0}
-                onPress={() => router.push('/(app)/(baby)' as never)}
-              />
-              {/* card 1 — agenda: secundário (dourado) */}
-              <MetricCard
-                icon={<IconCalendar size={18} color={Colors.secondary} />}
-                label="agenda"
-                value={nextEvent ? '1' : '0'}
-                marginTop={16}
-                radiusIndex={1}
-                onPress={() => router.push('/(app)/(agenda)' as never)}
-              />
-              {/* card 2 — tarefas: secundário (dourado) */}
-              <MetricCard
-                icon={<IconChecklist size={18} color={Colors.secondary} />}
-                label="tarefas"
-                value={String(pendingCount)}
-                marginTop={6}
-                radiusIndex={2}
-                onPress={() => router.push('/(app)/(tasks)' as never)}
-              />
-              {hasPartner && (
-                <MetricCard
-                  icon={
-                    <IconHeart
-                      size={18}
-                      color={Math.abs(pctA - pctB) > 30 ? Colors.primary : Colors.secondary}
-                    />
-                  }
-                  label="equilíbrio"
-                  value={`${pctA}/${pctB}`}
-                  marginTop={0}
-                  radiusIndex={3}
-                  onPress={() => router.push('/(app)/(mental-load)' as never)}
-                />
-              )}
-            </View>
-          </>
-        )}
-
-        {/* ── Compras — sempre visível ── */}
-        <TouchableOpacity
-          onPress={() => router.push('/(app)/(shopping)' as never)}
-          activeOpacity={0.82}
-          style={{
-            backgroundColor: Colors.bgCard,
-            borderRadius: Radius.lg,
-            borderWidth: 1,
-            borderColor: Colors.border,
-            padding: Spacing.lg,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: Spacing.md,
-          }}
-        >
-          <View>
-            <Text style={{ color: Colors.muted, fontSize: FontSize.xs, textTransform: 'uppercase', letterSpacing: 0.7 }}>compras</Text>
-            {loadingShopping && !hasAnyData ? (
-              <SkeletonRect width={80} height={14} borderRadius={5} delay={0} style={{ marginTop: 6 }} />
-            ) : (
-              <Text style={{ color: Colors.text, fontSize: FontSize.xl, fontWeight: '600', marginTop: 4 }}>
-                {pendingItems.length > 0
-                  ? `${pendingItems.length} pendente${pendingItems.length === 1 ? '' : 's'}`
-                  : 'lista em ordem'}
-              </Text>
-            )}
-          </View>
-          <Text style={{ color: Colors.primary, fontSize: 20 }}>›</Text>
-        </TouchableOpacity>
-
-        {/* ── FAB blob — registrar agora ── */}
-        <View style={{ alignItems: 'flex-end', marginTop: Spacing.md }}>
-          <TouchableOpacity
-            onPress={() => router.push('/(app)/(baby)' as never)}
-            activeOpacity={0.82}
-            accessibilityRole="button"
-            accessibilityLabel="Registrar novo evento do bebê"
-            style={{
-              width: 52,
-              height: 52,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 28,
-              borderBottomRightRadius: 30,
-              borderBottomLeftRadius: 22,
-              backgroundColor: Colors.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <IconPlus size={22} color={Colors.onLight} />
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </View>
   );

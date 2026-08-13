@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconScale, IconClipboardList, IconChartBar, IconRobot } from '@tabler/icons-react-native';
+import { IconScale, IconClipboardList, IconChartBar, IconRobot, IconMoodEmpty } from '@tabler/icons-react-native';
 import { useMentalLoad } from '@/hooks/useMentalLoad';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useFamily } from '@/hooks';
@@ -35,9 +35,10 @@ function BalanceBar({
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
 
   // UC028: flag de desequilíbrio se diferença > 10%
-  const a11yLabel = sorted
-    .map((m) => `${m.member_name.split(' ')[0]} ${m.percentage}%`)
-    .join(', ');
+  const a11yLabel =
+    `Distribuição de carga: ` +
+    sorted.map((m) => `${m.member_name} com ${m.percentage}%`).join(' e ') +
+    (isBalanced ? ', equilibrado' : `, desequilíbrio de ${imbalancePct}%`);
 
   return (
     <View>
@@ -93,7 +94,8 @@ function BalanceBar({
             desequilíbrio de {imbalancePct}%
           </Text>
           <Text style={{ fontSize: FontSize.xs, color: Colors.muted, flex: 1 }}>
-            {sorted[0].member_name.split(' ')[0]} está carregando mais essa semana
+            {/* tom observacional — sem acusação (handoff DoD) */}
+            essa semana pesou mais pro lado de {sorted[0].member_name.split(' ')[0]}
           </Text>
         </View>
       )}
@@ -358,11 +360,22 @@ export default function MentalLoadScreen() {
         )}
 
         {/* Estado vazio — sem registros na semana */}
-        {summary && summary.members.length === 0 && (
+        {!loading && summary && summary.members.length === 0 && (
           <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-            <Text style={{ fontSize: 36, marginBottom: Spacing.md }}>⚖️</Text>
+            <View style={{
+              width: 48, height: 48, borderRadius: 12,
+              backgroundColor: Colors.bgCard,
+              borderWidth: 1, borderColor: Colors.border,
+              alignItems: 'center', justifyContent: 'center',
+              marginBottom: Spacing.md,
+            }}>
+              <IconMoodEmpty size={24} color={Colors.muted} />
+            </View>
             <Text style={{ fontSize: FontSize.lg, fontWeight: '500', color: Colors.text, textAlign: 'center' }}>
               nada registrado ainda essa semana
+            </Text>
+            <Text style={{ fontSize: FontSize.sm, color: Colors.muted, textAlign: 'center', marginTop: Spacing.xs }}>
+              conclua tarefas para ver a distribuição aqui
             </Text>
           </View>
         )}

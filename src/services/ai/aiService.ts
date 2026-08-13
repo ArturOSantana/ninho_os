@@ -236,14 +236,14 @@ export const aiService = {
           }, 0) / sleepData.length
         : 0;
 
-    // Tarefas
+    // Tarefas — usa completed_at (não updated_at) para não contar edições
     const { count: tasksCompleted } = await supabase
       .from('tasks')
       .select('*', { count: 'exact', head: true })
       .eq('family_id', familyId)
       .eq('status', 'done')
-      .gte('updated_at', weekStartISO)
-      .lte('updated_at', weekEndISO);
+      .gte('completed_at', weekStartISO)
+      .lte('completed_at', weekEndISO);
 
     const { count: tasksPending } = await supabase
       .from('tasks')
@@ -280,9 +280,6 @@ export const aiService = {
       mostActiveName = profile?.name ?? mostActiveName;
     }
 
-    // Gerar insights para o resumo
-    const insights = await aiService.generateInsights(familyId, babyId);
-
     return {
       family_id: familyId,
       week_start: weekStart.toISOString().substring(0, 10),
@@ -293,7 +290,7 @@ export const aiService = {
       tasks_completed: tasksCompleted ?? 0,
       tasks_pending: tasksPending ?? 0,
       most_active_member: mostActiveName,
-      insights,
+      insights: [],  // populado pelo useAIInsights em paralelo — evita chamada recursiva
     };
   },
 };

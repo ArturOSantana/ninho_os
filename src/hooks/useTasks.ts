@@ -1,7 +1,8 @@
 // src/hooks/useTasks.ts
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { tasksService } from '@/services/tasks/tasksService';
+import { supabase } from '@/lib/supabase';
 import { Task, CreateTaskInput, UpdateTaskInput, TaskFilters } from '@/types';
 
 interface TasksState {
@@ -13,6 +14,7 @@ interface TasksState {
 /**
  * Hook para gerenciar tarefas familiares
  * UC018: Criar tarefa | UC019: Concluir | UC020: Delegar
+ * Realtime: subscription em tasks WHERE family_id = familyId
  */
 export const useTasks = (familyId: string) => {
   const [state, setState] = useState<TasksState>({
@@ -20,6 +22,9 @@ export const useTasks = (familyId: string) => {
     loading: false,
     error: null,
   });
+
+  // Ref para evitar re-subscribe desnecessário
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const setLoading = (loading: boolean) =>
     setState((prev) => ({ ...prev, loading }));
@@ -41,6 +46,53 @@ export const useTasks = (familyId: string) => {
     },
     [familyId]
   );
+
+  // ── Realtime: ouve INSERT / UPDATE / DELETE na tabela tasks da família ──
+  useEffect(() => {
+    if (!familyId) return;
+
+    // Cancela canal anterior se familyId mudou
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`tasks:family:${familyId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `family_id=eq.${familyId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newTask = payload.new as Task;
+            setState((prev) => {
+              // Evita duplicata se o insert já veio do optimistic update
+              if (prev.tasks.some((t) => t.id === newTask.id)) return prev;
+              return { ...prev, tasks: [newTask, ...prev.tasks] };
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as Task;
+            setState((prev) => ({
+              ...prev,
+              tasks: prev.tasks.map((t) => (t.id === updated.id ? updated : t)),
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const deleted = payload.old as { id: string };
+            setState((prev) => ({
+              ...prev,
+              tasks: prev.tasks.filter((t) => t.id !== deleted.id),
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [familyId]);
 
   const createTask = useCallback(
     async (input: CreateTaskInput) => {

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { IconGenderMale, IconGenderFemale, IconCamera } from '@tabler/icons-react-native';
 import { BabyGender } from '@/types';
 
 interface BabyFormProps {
@@ -167,6 +168,8 @@ export const BabyForm: React.FC<BabyFormProps> = ({
           }`}
           placeholderTextColor="rgba(255,255,255,0.4)"
           style={{ color: '#ffffff' }}
+          accessibilityLabel="Nome do bebê"
+          accessibilityHint="Digite o nome do bebê, mínimo 2 caracteres"
         />
         {!!fieldErrors.name && (
           <Text className="text-xs text-red-400 mt-1">{fieldErrors.name}</Text>
@@ -184,13 +187,17 @@ export const BabyForm: React.FC<BabyFormProps> = ({
               key={g}
               onPress={() => setGender(g)}
               disabled={isLoading || submitting}
+              accessibilityRole="button"
+              accessibilityLabel={g === 'male' ? 'Menino' : 'Menina'}
+              accessibilityState={{ selected: gender === g }}
               className={`flex-1 p-3 rounded-lg border-2 items-center ${
                 gender === g ? 'border-blue-400 bg-blue-900/40' : 'border-white/30'
               }`}
             >
-              <Text className="text-lg mb-1">
-                {g === 'male' ? '👦' : '👧'}
-              </Text>
+              {g === 'male'
+                ? <IconGenderMale size={22} color={gender === g ? '#93c5fd' : 'rgba(255,255,255,0.5)'} style={{ marginBottom: 4 }} />
+                : <IconGenderFemale size={22} color={gender === g ? '#93c5fd' : 'rgba(255,255,255,0.5)'} style={{ marginBottom: 4 }} />
+              }
               <Text
                 className={`font-semibold text-xs ${
                   gender === g ? 'text-blue-300' : 'text-white/70'
@@ -211,6 +218,8 @@ export const BabyForm: React.FC<BabyFormProps> = ({
         <TouchableOpacity
           onPress={() => setShowDatePicker(true)}
           disabled={isLoading || submitting}
+          accessibilityRole="button"
+          accessibilityLabel={`Data de nascimento: ${birthDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}. Toque para alterar.`}
           className={`border px-4 py-3 rounded-lg ${
             fieldErrors.birthDate ? 'border-red-400' : 'border-white/30'
           }`}
@@ -268,13 +277,15 @@ export const BabyForm: React.FC<BabyFormProps> = ({
           <TouchableOpacity
             onPress={pickImage}
             disabled={isLoading || submitting}
+            accessibilityRole="button"
+            accessibilityLabel="Selecionar foto do bebê"
             className="border border-dashed border-white/30 bg-white/5 p-8 rounded-lg items-center justify-center"
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#3b82d4" />
             ) : (
               <>
-                <Text className="text-3xl mb-2">📷</Text>
+                <IconCamera size={28} color="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }} />
                 <Text className="text-white/70 font-semibold">
                   Selecionar Foto
                 </Text>

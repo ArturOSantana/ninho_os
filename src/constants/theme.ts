@@ -1,50 +1,66 @@
 // src/constants/theme.ts
-// Design tokens canônicos do Ninho — espelham exatamente o handoff de design.
-// Nunca usar hex diretamente nos componentes novos; sempre referenciar estes tokens.
+// Design tokens v3 — paleta clean/moderna
+// Referências: Linear, Notion, Superhuman
+// Nunca usar hex diretamente nos componentes; sempre referenciar estes tokens.
 
 export const Colors = {
   // ── Fundos ──────────────────────────────────────────────────
-  bgPage:  '#0d1b2a', // fundo de toda tela
-  bgCard:  '#16283d', // cards e blocos internos
-  bgNav:   '#0a1420', // fundo da barra de navegação inferior
+  bgPage:  '#0f1117', // fundo de toda tela — quase preto neutro
+  bgCard:  '#1a1d27', // cards — cinza-azulado escuro
+  bgNav:   '#0f1117', // fundo da barra de navegação inferior
+
+  // ── Superfícies de elevação ──────────────────────────────────
+  surfaceHover:  '#1f2333',
+  surfaceActive: '#252a3d',
 
   // ── Bordas ──────────────────────────────────────────────────
-  border:  '#2a3d52', // bordas sutis, divisores, tracejados
+  border:     '#252a3d',
+  borderMid:  '#2e3347',
+  borderHigh: '#3d4460',
 
   // ── Accent ──────────────────────────────────────────────────
-  primary:   '#e8720c', // CTA principal, ações primárias
-  secondary: '#f0b429', // ícones de destaque, indicadores secundários
-  tertiary:  '#f5d9b0', // superfícies claras (avatar bg), texto secundário
+  primary:   '#5b7cf6', // indigo suave — CTA principal
+  primaryBg: '#1a1f3c',
+
+  secondary: '#38bdf8',
+  success:   '#22c55e',
+  successBg: '#0f2918',
+
+  amber:    '#f59e0b',
+  amberBg:  '#271f0a',
+
+  coral:    '#f97316',
+  coralBg:  '#251509',
 
   // ── Texto ───────────────────────────────────────────────────
-  textPrimary:   '#fdf6ec', // texto principal sobre fundo escuro
-  textSecondary: '#f5d9b0', // texto secundário / legendas
-  textOnLight:   '#4a1b0c', // texto sobre accent-primary / secondary / tertiary
+  textPrimary:   '#f1f3f9',
+  textSecondary: '#8892a4',
+  textDisabled:  '#4a5168',
+  textOnPrimary: '#ffffff',
 
-  // ── Status (apenas para erros técnicos reais) ───────────────
-  error:   '#FF3B30',
-  success: '#34C759',
-  warning: '#FF9500',
-  info:    '#007AFF',
+  // ── Status ──────────────────────────────────────────────────
+  error:   '#f87171',
+  errorBg: '#2a1010',
+  warning: '#fbbf24',
+  info:    '#60a5fa',
 
-  // ── Aliases de compatibilidade — não usar em código novo ────
-  page:        '#0d1b2a',
-  card:        '#16283d',
-  textBase:    '#fdf6ec',
-  textMuted:   '#f5d9b0',
-  onLight:     '#4a1b0c',
-  bg:          '#0d1b2a',
-  surface:     '#16283d',
-  text:        '#fdf6ec',
-  muted:       '#f5d9b0',
-  orange:      '#e8720c',
-  orangeLight: '#f0b429',
-  orangeBg:    '#1a2c1a',
-  amber:       '#f0b429',
-  amberBg:     '#1e2b10',
-  cream:       '#f5d9b0',
-  creamBg:     '#1e2318',
-  sand:        '#c8b89a',
+  // ── Aliases legacy — compatibilidade com código existente ───
+  bg:          '#0f1117',
+  card:        '#1a1d27',
+  surface:     '#1a1d27',
+  text:        '#f1f3f9',
+  muted:       '#8892a4',
+  onLight:     '#ffffff',
+  orange:      '#f97316',
+  orangeLight: '#f59e0b',
+  orangeBg:    '#251509',
+  cream:       '#8892a4',
+  creamBg:     '#1a1d27',
+  sand:        '#8892a4',
+  textBase:    '#f1f3f9',
+  textMuted:   '#8892a4',
+  textOnLight: '#ffffff',
+  tertiary:    '#8892a4',
 } as const;
 
 export const Spacing = {
@@ -60,12 +76,12 @@ export const Spacing = {
 } as const;
 
 export const Radius = {
-  sm:    8,
-  md:    12,
-  lg:    16,
-  xl:    20,
-  '2xl': 28,
-  xxl:   28,
+  sm:    6,
+  md:    10,
+  lg:    14,
+  xl:    18,
+  '2xl': 24,
+  xxl:   24,
   full:  9999,
 } as const;
 
@@ -81,11 +97,22 @@ export const FontSize = {
   display: 30,
 } as const;
 
+export const FontWeight = {
+  regular:  '400' as const,
+  medium:   '500' as const,
+  semibold: '600' as const,
+  bold:     '700' as const,
+};
+
 // Cor da barra lateral do EventCard por categoria
 export const EVENT_CATEGORY_COLOR: Record<string, string> = {
-  appointment: '#e8720c',
-  vaccine:     '#f0b429',
-  school:      '#f5d9b0',
-  personal:    '#2a3d52',
-  other:       '#2a3d52',
+  appointment: '#5b7cf6',
+  vaccine:     '#f59e0b',
+  school:      '#38bdf8',
+  personal:    '#22c55e',
+  other:       '#252a3d',
 };
+
+// Largura máxima para conteúdo central no web
+export const WEB_MAX_WIDTH = 960;
+export const WEB_SIDEBAR_WIDTH = 220;

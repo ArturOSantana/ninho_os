@@ -1,8 +1,9 @@
 // src/hooks/useFamilyMembers.ts
 // Fase 5: Social — gerencia membros, roles e convites
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { familyService } from '@/services/family/familyService';
+import { supabase } from '@/lib/supabase';
 import { Profile, UserRole, PendingInvite, InviteLinkResponse, UUID } from '@/types';
 
 interface FamilyMembersState {
@@ -24,6 +25,8 @@ export function useFamilyMembers(familyId: UUID | null | undefined) {
     error: null,
     inviteLink: null,
   });
+
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const setPartial = (partial: Partial<FamilyMembersState>) =>
     setState((prev) => ({ ...prev, ...partial }));
@@ -52,6 +55,54 @@ export function useFamilyMembers(familyId: UUID | null | undefined) {
       // silencioso — não crítico para a tela principal
     }
   }, [familyId]);
+
+  // Nome único por montagem para evitar reutilizar um canal já subscrito
+  const channelName = useMemo(
+    () => (familyId ? `profiles:family:${familyId}:${Date.now()}` : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [familyId]
+  );
+
+  // ── Realtime: ouve INSERT / UPDATE / DELETE em profiles da família ──
+  useEffect(() => {
+    if (!familyId || !channelName) return;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `family_id=eq.${familyId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newMember = payload.new as Profile;
+            setState((prev) => {
+              if (prev.members.some((m) => m.id === newMember.id)) return prev;
+              return { ...prev, members: [...prev.members, newMember] };
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as Profile;
+            setState((prev) => ({
+              ...prev,
+              members: prev.members.map((m) => (m.id === updated.id ? updated : m)),
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const deleted = payload.old as { id: string };
+            setState((prev) => ({
+              ...prev,
+              members: prev.members.filter((m) => m.id !== deleted.id),
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [familyId, channelName]);
 
   /** UC025 — carrega mapa profileId→daysLeft de convites já aceitos mas ainda vigentes */
   const loadAcceptedInvites = useCallback(async () => {

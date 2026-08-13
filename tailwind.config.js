@@ -4,51 +4,62 @@ module.exports = {
     './app/**/*.{js,jsx,ts,tsx}',
     './src/**/*.{js,jsx,ts,tsx}',
   ],
-  // Ninho é sempre dark — desativa media query automática do NativeWind.
-  // Sem 'class', a lib tenta setar o color scheme via media e lança o aviso.
   darkMode: 'class',
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
       colors: {
-        // ── Design tokens Ninho (handoff) ──────────────────────────
-        // Backgrounds
-        page:    '#0d1b2a', // bg-page  — fundo de toda tela
-        card:    '#16283d', // bg-card  — cards e blocos internos
-        nav:     '#0a1420', // bg-nav   — fundo da tab bar inferior
-        border:  '#2a3d52', // border   — bordas sutis / divisores
-        // Accent
-        'accent-primary':   '#e8720c', // CTA principal
-        'accent-secondary': '#f0b429', // ícones de destaque
-        'accent-tertiary':  '#f5d9b0', // superfícies claras
-        // Texto
-        'text-base':     '#fdf6ec', // texto principal
-        'text-muted':    '#f5d9b0', // texto secundário/legendas
-        'text-on-light': '#4a1b0c', // texto sobre accent backgrounds
-        // Status
-        error:   '#FF3B30',
-        success: '#34C759',
-        warning: '#FF9500',
-        // Aliases curtos usados nas classes
+        // ── Backgrounds
+        'bg-page': '#0f1117',
+        'bg-card': '#1a1d27',
+        'bg-nav':  '#0f1117',
+
+        // ── Surfaces
+        'surface-hover':   '#1f2333',
+        'surface-active':  '#252a3d',
+
+        // ── Borders
+        border:       '#252a3d',
+        'border-mid': '#2e3347',
+
+        // ── Accent
+        primary:     '#5b7cf6',
+        'primary-bg':'#1a1f3c',
+        secondary:   '#38bdf8',
+        success:     '#22c55e',
+        'success-bg':'#0f2918',
+        amber:       '#f59e0b',
+        'amber-bg':  '#271f0a',
+        coral:       '#f97316',
+        'coral-bg':  '#251509',
+
+        // ── Text
+        'text-base':     '#f1f3f9',
+        'text-muted':    '#8892a4',
+        'text-disabled': '#4a5168',
+
+        // ── Status
+        error:      '#f87171',
+        'error-bg': '#2a1010',
+        warning:    '#fbbf24',
+        info:       '#60a5fa',
+
+        // ── Aliases curtos
         ninho: {
-          bg:        '#0d1b2a',
-          card:      '#16283d',
-          nav:       '#0a1420',
-          border:    '#2a3d52',
-          primary:   '#e8720c',
-          secondary: '#f0b429',
-          tertiary:  '#f5d9b0',
-          text:      '#fdf6ec',
-          muted:     '#f5d9b0',
-          'on-light':'#4a1b0c',
+          bg:      '#0f1117',
+          card:    '#1a1d27',
+          border:  '#252a3d',
+          primary: '#5b7cf6',
+          muted:   '#8892a4',
+          text:    '#f1f3f9',
         },
       },
       borderRadius: {
-        sm:    '8px',
-        md:    '12px',
-        lg:    '16px',
-        xl:    '20px',
-        '2xl': '28px',
+        sm:    '6px',
+        md:    '10px',
+        lg:    '14px',
+        xl:    '18px',
+        '2xl': '24px',
         full:  '9999px',
       },
       spacing: {

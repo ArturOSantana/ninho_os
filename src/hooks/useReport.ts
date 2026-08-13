@@ -1,7 +1,7 @@
 // src/hooks/useReport.ts
 
 import { useState, useCallback } from 'react';
-import { reportService, FamilyReport, ReportPeriod } from '@/services/report/reportService';
+import { reportService, FamilyReport, ReportPeriod, ReportPeriodOptions } from '@/services/report/reportService';
 import { UUID } from '@/types/common.types';
 
 export function useReport(familyId: UUID | undefined) {
@@ -10,12 +10,12 @@ export function useReport(familyId: UUID | undefined) {
   const [error, setError]     = useState<string | null>(null);
 
   const generate = useCallback(
-    async (period: ReportPeriod) => {
+    async (options: ReportPeriodOptions) => {
       if (!familyId) return;
       setLoading(true);
       setError(null);
       try {
-        const data = await reportService.generate(familyId, period);
+        const data = await reportService.generate(familyId, options);
         setReport(data);
       } catch (e: any) {
         setError(e.message ?? 'Erro ao gerar relatório');

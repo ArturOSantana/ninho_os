@@ -17,3 +17,5 @@ export { useBabyLogger } from './useBabyLogger';
 export { useSubscription } from './useSubscription';
 export { useSmartAlerts } from './useSmartAlerts';
 export { useTutorial } from './useTutorial';
+export { useBreakpoint } from './useBreakpoint';
+

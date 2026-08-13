@@ -6,30 +6,23 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconFeather } from '@tabler/icons-react-native';
+import { IconArrowLeft, IconEye, IconEyeOff } from '@tabler/icons-react-native';
 import { supabase } from '@/lib/supabase';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, FontSize } from '@/constants/theme';
 
-/** Traduz erros do Supabase no cadastro para PT-BR sem expor detalhes internos */
 function parseSignUpError(err: any): string {
   const msg: string = err?.message ?? '';
   const code: string = err?.code ?? '';
-
-  if (code === 'user_already_exists' || msg.includes('User already registered')) {
-    return 'Este e-mail já está cadastrado. Tente entrar ou recupere sua senha.';
-  }
-  if (msg.includes('Password should be') || msg.includes('password')) {
-    return 'A senha não atende aos requisitos mínimos. Use pelo menos 8 caracteres.';
-  }
-  if (msg.includes('Unable to validate email') || msg.includes('invalid email')) {
+  if (code === 'user_already_exists' || msg.includes('User already registered'))
+    return 'Este e-mail já está cadastrado.';
+  if (msg.includes('Password should be') || msg.includes('password'))
+    return 'Senha deve ter pelo menos 8 caracteres.';
+  if (msg.includes('Unable to validate email') || msg.includes('invalid email'))
     return 'Endereço de e-mail inválido.';
-  }
-  if (code === 'too_many_requests' || msg.includes('rate limit')) {
-    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
-  }
-  if (msg.includes('network') || msg.includes('fetch')) {
-    return 'Sem conexão com a internet. Verifique sua rede.';
-  }
+  if (code === 'too_many_requests' || msg.includes('rate limit'))
+    return 'Muitas tentativas. Aguarde e tente novamente.';
+  if (msg.includes('network') || msg.includes('fetch'))
+    return 'Sem conexão. Verifique sua rede.';
   return 'Não foi possível criar a conta. Tente novamente.';
 }
 
@@ -39,6 +32,7 @@ export default function SignUpScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -46,26 +40,19 @@ export default function SignUpScreen() {
   async function handleSignUp() {
     setErrorMsg(null);
     setSuccessMsg(null);
-
-    if (!name.trim()) { setErrorMsg('Informe seu nome.'); return; }
-    if (!email.trim()) { setErrorMsg('Informe seu e-mail.'); return; }
+    if (!name.trim())   { setErrorMsg('Informe seu nome.'); return; }
+    if (!email.trim())  { setErrorMsg('Informe seu e-mail.'); return; }
     if (!password.trim()) { setErrorMsg('Informe uma senha.'); return; }
-    if (password.length < 8) {
-      setErrorMsg('A senha deve ter pelo menos 8 caracteres.');
-      return;
-    }
-
+    if (password.length < 8) { setErrorMsg('A senha deve ter pelo menos 8 caracteres.'); return; }
     try {
       setLoading(true);
       const { error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email:    email.trim().toLowerCase(),
         password,
-        options: { data: { name: name.trim() } },
+        options:  { data: { name: name.trim() } },
       });
       if (error) throw error;
-      // Se confirmação de e-mail estiver desabilitada, o onAuthStateChange
-      // já navega automaticamente. Se estiver habilitada, mostramos aviso.
-      setSuccessMsg('Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+      setSuccessMsg('Conta criada! Verifique seu e-mail para confirmar.');
     } catch (err: any) {
       setErrorMsg(parseSignUpError(err));
     } finally {
@@ -73,146 +60,192 @@ export default function SignUpScreen() {
     }
   }
 
-  const clearFeedback = () => { setErrorMsg(null); setSuccessMsg(null); };
+  const clear = () => { setErrorMsg(null); setSuccessMsg(null); };
+  const isWeb = Platform.OS === 'web';
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.bg }}
+      style={{ flex: 1, backgroundColor: Colors.bgPage }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
         contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: insets.top + 32,
-          paddingBottom: insets.bottom + 32,
+          flexGrow:          1,
+          paddingTop:        isWeb ? 0 : insets.top + 24,
+          paddingBottom:     insets.bottom + 32,
           paddingHorizontal: 24,
-          justifyContent: 'center',
-          maxWidth: 340, alignSelf: 'center', width: '100%',
+          justifyContent:    'center',
+          alignItems:        'center',
         }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo */}
-        <View style={{ alignItems: 'center', marginBottom: 40 }}>
-          <View style={{
-            width: 56, height: 56, borderRadius: 28,
-            backgroundColor: Colors.primary,
-            alignItems: 'center', justifyContent: 'center',
-            borderWidth: 3, borderColor: Colors.secondary, marginBottom: 14,
-          }}>
-            <IconFeather size={24} color={Colors.onLight} />
-          </View>
-          <Text style={{ color: Colors.text, fontSize: 22, fontWeight: '500' }}>Criar conta</Text>
-          <Text style={{ color: Colors.muted, fontSize: 13, marginTop: 4 }}>Junte-se ao Ninho</Text>
-        </View>
+        <View style={{
+          width:           '100%',
+          maxWidth:        400,
+          backgroundColor: Colors.bgCard,
+          borderRadius:    Radius.xl,
+          borderWidth:     1,
+          borderColor:     Colors.border,
+          padding:         32,
+        }}>
+          {/* Voltar */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              flexDirection:   'row',
+              alignItems:      'center',
+              gap:             6,
+              marginBottom:    24,
+            }}
+          >
+            <IconArrowLeft size={16} color={Colors.muted} />
+            <Text style={{ color: Colors.muted, fontSize: FontSize.sm }}>Voltar</Text>
+          </TouchableOpacity>
 
-        {/* Banner de erro */}
-        {errorMsg ? (
-          <View style={{
-            backgroundColor: Colors.bgCard,
-            borderWidth: 1, borderColor: Colors.error,
-            borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-            marginBottom: 16,
+          {/* Título */}
+          <Text style={{
+            color:         Colors.text,
+            fontSize:      22,
+            fontWeight:    '600',
+            letterSpacing: -0.5,
+            marginBottom:  6,
           }}>
-            <Text style={{ color: Colors.error, fontSize: 13, lineHeight: 18 }}>
-              {errorMsg}
+            Criar conta
+          </Text>
+          <Text style={{
+            color:        Colors.muted,
+            fontSize:     FontSize.sm,
+            marginBottom: 28,
+          }}>
+            É grátis, leva menos de 1 minuto.
+          </Text>
+
+          {/* Feedback */}
+          {errorMsg ? (
+            <View style={{
+              backgroundColor: Colors.errorBg,
+              borderWidth:     1,
+              borderColor:     Colors.error + '60',
+              borderRadius:    Radius.md,
+              padding:         12,
+              marginBottom:    20,
+            }}>
+              <Text style={{ color: Colors.error, fontSize: FontSize.sm }}>{errorMsg}</Text>
+            </View>
+          ) : null}
+          {successMsg ? (
+            <View style={{
+              backgroundColor: Colors.successBg,
+              borderWidth:     1,
+              borderColor:     Colors.success + '60',
+              borderRadius:    Radius.md,
+              padding:         12,
+              marginBottom:    20,
+            }}>
+              <Text style={{ color: Colors.success, fontSize: FontSize.sm }}>{successMsg}</Text>
+            </View>
+          ) : null}
+
+          {/* Campo helper */}
+          {(
+            [
+              { label: 'Nome', value: name, setValue: setName, placeholder: 'Como quer ser chamado?', type: 'default' as const, autoCapitalize: 'words' as const },
+              { label: 'E-mail', value: email, setValue: setEmail, placeholder: 'seu@email.com', type: 'email-address' as const, autoCapitalize: 'none' as const },
+            ] as Array<{label:string;value:string;setValue:(v:string)=>void;placeholder:string;type:any;autoCapitalize:any}>
+          ).map(({ label, value, setValue, placeholder, type, autoCapitalize }) => (
+            <View key={label} style={{ marginBottom: 14 }}>
+              <Text style={{
+                color:         Colors.muted,
+                fontSize:      FontSize.xs,
+                fontWeight:    '500',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                marginBottom:  6,
+              }}>
+                {label}
+              </Text>
+              <View style={{
+                backgroundColor:   Colors.bgPage,
+                borderRadius:      Radius.md,
+                borderWidth:       1,
+                borderColor:       Colors.border,
+                paddingHorizontal: 14,
+                height:            46,
+                justifyContent:    'center',
+              }}>
+                <TextInput
+                  value={value}
+                  onChangeText={(v) => { setValue(v); clear(); }}
+                  placeholder={placeholder}
+                  placeholderTextColor={Colors.textDisabled}
+                  keyboardType={type}
+                  autoCapitalize={autoCapitalize}
+                  style={{ color: Colors.text, fontSize: FontSize.md }}
+                />
+              </View>
+            </View>
+          ))}
+
+          {/* Senha */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{
+              color:         Colors.muted,
+              fontSize:      FontSize.xs,
+              fontWeight:    '500',
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
+              marginBottom:  6,
+            }}>
+              Senha
+            </Text>
+            <View style={{
+              backgroundColor:   Colors.bgPage,
+              borderRadius:      Radius.md,
+              borderWidth:       1,
+              borderColor:       Colors.border,
+              paddingHorizontal: 14,
+              height:            46,
+              flexDirection:     'row',
+              alignItems:        'center',
+            }}>
+              <TextInput
+                value={password}
+                onChangeText={(v) => { setPassword(v); clear(); }}
+                placeholder="Mínimo 8 caracteres"
+                placeholderTextColor={Colors.textDisabled}
+                secureTextEntry={!showPw}
+                style={{ flex: 1, color: Colors.text, fontSize: FontSize.md }}
+              />
+              <TouchableOpacity onPress={() => setShowPw(v => !v)} style={{ padding: 4 }}>
+                {showPw
+                  ? <IconEyeOff size={18} color={Colors.muted} />
+                  : <IconEye    size={18} color={Colors.muted} />
+                }
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: Colors.textDisabled, fontSize: FontSize.xs, marginTop: 5 }}>
+              Use letras, números e símbolos para uma senha segura.
             </Text>
           </View>
-        ) : null}
 
-        {/* Banner de sucesso */}
-        {successMsg ? (
-          <View style={{
-            backgroundColor: Colors.bgCard,
-            borderWidth: 1, borderColor: Colors.success,
-            borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-            marginBottom: 16,
-          }}>
-            <Text style={{ color: Colors.success, fontSize: 13, lineHeight: 18 }}>
-              {successMsg}
+          {/* CTA */}
+          <TouchableOpacity
+            onPress={handleSignUp}
+            disabled={loading}
+            activeOpacity={0.8}
+            style={{
+              backgroundColor: Colors.primary,
+              borderRadius:    Radius.md,
+              height:          46,
+              alignItems:      'center',
+              justifyContent:  'center',
+              opacity:         loading ? 0.65 : 1,
+            }}
+          >
+            <Text style={{ color: '#ffffff', fontSize: FontSize.md, fontWeight: '600' }}>
+              {loading ? 'Criando conta…' : 'Criar conta'}
             </Text>
-          </View>
-        ) : null}
-
-        {/* Nome */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: Colors.muted, fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-            Seu nome
-          </Text>
-          <View style={{
-            backgroundColor: Colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: Colors.border,
-            paddingHorizontal: 14, height: 48, justifyContent: 'center',
-          }}>
-            <TextInput
-              value={name} onChangeText={(v) => { setName(v); clearFeedback(); }}
-              placeholder="Como você quer ser chamado?" placeholderTextColor={Colors.border}
-              autoCapitalize="words"
-              style={{ color: Colors.text, fontSize: 14 }}
-            />
-          </View>
-        </View>
-
-        {/* E-mail */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: Colors.muted, fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-            E-mail
-          </Text>
-          <View style={{
-            backgroundColor: Colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: Colors.border,
-            paddingHorizontal: 14, height: 48, justifyContent: 'center',
-          }}>
-            <TextInput
-              value={email} onChangeText={(v) => { setEmail(v); clearFeedback(); }}
-              placeholder="seu@email.com" placeholderTextColor={Colors.border}
-              keyboardType="email-address" autoCapitalize="none"
-              style={{ color: Colors.text, fontSize: 14 }}
-            />
-          </View>
-        </View>
-
-        {/* Senha */}
-        <View style={{ marginBottom: 4 }}>
-          <Text style={{ color: Colors.muted, fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-            Senha
-          </Text>
-          <View style={{
-            backgroundColor: Colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: Colors.border,
-            paddingHorizontal: 14, height: 48, justifyContent: 'center',
-          }}>
-            <TextInput
-              value={password} onChangeText={(v) => { setPassword(v); clearFeedback(); }}
-              placeholder="Mínimo 8 caracteres" placeholderTextColor={Colors.border}
-              secureTextEntry
-              style={{ color: Colors.text, fontSize: 14 }}
-            />
-          </View>
-        </View>
-        <Text style={{ color: Colors.muted, fontSize: 11, marginTop: 6, marginBottom: 20 }}>
-          Use letras, números e símbolos para uma senha segura.
-        </Text>
-
-        <TouchableOpacity
-          onPress={handleSignUp} disabled={loading} activeOpacity={0.8}
-          style={{
-            backgroundColor: Colors.primary, borderRadius: 16,
-            height: 52, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          <Text style={{ color: Colors.onLight, fontSize: 15, fontWeight: '500' }}>
-            {loading ? 'Criando conta…' : 'Criar conta'}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ color: Colors.muted, fontSize: 13 }}>
-            Já tem conta?{' '}
-            <Text style={{ color: Colors.primary, fontWeight: '500' }} onPress={() => router.back()}>
-              Entrar
-            </Text>
-          </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

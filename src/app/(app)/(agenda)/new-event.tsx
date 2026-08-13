@@ -235,7 +235,7 @@ export default function NewEventScreen() {
         <TextInput
           value={title}
           onChangeText={setTitle}
-          placeholder="Ex: Consulta pediátrica"
+          placeholder=""
           placeholderTextColor={Colors.border}
           style={inputStyle}
           autoFocus
@@ -394,23 +394,20 @@ export default function NewEventScreen() {
           <View
             style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              backgroundColor: '#2d1010', borderRadius: 10,
-              borderWidth: 1, borderColor: '#FF3B30',
+              backgroundColor: Colors.amberBg, borderRadius: 10,
+              borderWidth: 1, borderColor: Colors.amber,
               paddingHorizontal: 14, paddingVertical: 12, marginBottom: 20,
             }}
           >
             <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ color: '#FF6B6B', fontSize: 14, fontWeight: '500' }}>
-                💉 Lembrete de vacina
-              </Text>
-              <Text style={{ color: '#c0706a', fontSize: 12, marginTop: 2 }}>
-                Criar notificação de alerta para esta vacina
+              <Text style={{ color: Colors.amber, fontSize: 14, fontWeight: '500' }}>
+                Lembrete de vacina
               </Text>
             </View>
             <Switch
               value={pushEnabled}
               onValueChange={setPushEnabled}
-              trackColor={{ true: '#FF3B30', false: Colors.border }}
+              trackColor={{ true: Colors.amber, false: Colors.border }}
               thumbColor={pushEnabled ? '#fff' : Colors.muted}
               accessibilityLabel="Ativar lembrete de vacina"
             />
@@ -422,7 +419,7 @@ export default function NewEventScreen() {
         <TextInput
           value={description}
           onChangeText={setDescription}
-          placeholder="Notas adicionais..."
+          placeholder=""
           placeholderTextColor={Colors.border}
           style={[inputStyle, { height: 88, textAlignVertical: 'top', paddingTop: 12 }]}
           multiline

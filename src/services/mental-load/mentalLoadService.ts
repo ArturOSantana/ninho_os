@@ -191,12 +191,25 @@ export const mentalLoadService = {
   /**
    * UC025 — Série temporal para o gráfico de histórico
    * Retorna pontos por dia para cada membro (baby_logs + tasks)
+   * member_id retornado é sempre user_id (não profile.id)
    */
   async getDailyHistory(
     familyId: UUID,
     period: MentalLoadPeriod = 'week'
   ): Promise<MentalLoadDayEntry[]> {
     const { start, end } = getPeriodRange(period);
+
+    // Buscar mapa profile.id → user_id para normalizar os IDs
+    const { data: members } = await supabase
+      .from('profiles')
+      .select('id, user_id')
+      .eq('family_id', familyId)
+      .neq('role', 'child');
+
+    const profileToUser: Record<UUID, UUID> = {};
+    for (const m of members ?? []) {
+      profileToUser[m.id] = m.user_id;
+    }
 
     const [{ data: activities, error: actError }, { data: tasks }] = await Promise.all([
       supabase
@@ -216,22 +229,26 @@ export const mentalLoadService = {
 
     if (actError) throw new Error(actError.message);
 
-    // Agrupar por dia e membro
+    // Agrupar por dia e membro (chave = user_id para consistência com getFamilySummary)
     const dayMap: Record<string, Record<UUID, number>> = {};
 
     for (const act of activities ?? []) {
       if (!act.created_by) continue;
+      const userId = profileToUser[act.created_by];
+      if (!userId) continue;
       const day = act.created_at.substring(0, 10);
       const type = mapBabyActivityType(act.type);
       const pts = type ? MENTAL_LOAD_POINTS[type] : 1;
 
       if (!dayMap[day]) dayMap[day] = {};
-      dayMap[day][act.created_by] = (dayMap[day][act.created_by] ?? 0) + pts;
+      dayMap[day][userId] = (dayMap[day][userId] ?? 0) + pts;
     }
 
     for (const task of tasks ?? []) {
-      const responsibleId = task.completed_by ?? task.assigned_to;
-      if (!responsibleId || !task.completed_at) continue;
+      const responsibleProfileId = task.completed_by ?? task.assigned_to;
+      if (!responsibleProfileId || !task.completed_at) continue;
+      const userId = profileToUser[responsibleProfileId];
+      if (!userId) continue;
       const day = task.completed_at.substring(0, 10);
       const taskType: MentalLoadActivityType =
         task.priority === 'high' ? 'task_high'
@@ -240,7 +257,7 @@ export const mentalLoadService = {
       const pts = MENTAL_LOAD_POINTS[taskType];
 
       if (!dayMap[day]) dayMap[day] = {};
-      dayMap[day][responsibleId] = (dayMap[day][responsibleId] ?? 0) + pts;
+      dayMap[day][userId] = (dayMap[day][userId] ?? 0) + pts;
     }
 
     const result: MentalLoadDayEntry[] = [];
@@ -256,13 +273,31 @@ export const mentalLoadService = {
   /**
    * UC029 — Histórico de atividades por membro
    * Listagem cronológica reversa de tasks e baby_logs
+   * memberId recebido é user_id; convertido para profile.id internamente
    */
   async getActivityHistory(
     familyId: UUID,
     period: MentalLoadPeriod = 'week',
-    memberId?: UUID
+    memberId?: UUID   // user_id
   ): Promise<ActivityHistoryEntry[]> {
     const { start, end } = getPeriodRange(period);
+
+    // Mapa bidirecional: profile.id ↔ user_id
+    const { data: members } = await supabase
+      .from('profiles')
+      .select('id, user_id')
+      .eq('family_id', familyId)
+      .neq('role', 'child');
+
+    const profileToUser: Record<UUID, UUID> = {};
+    const userToProfile: Record<UUID, UUID> = {};
+    for (const m of members ?? []) {
+      profileToUser[m.id] = m.user_id;
+      userToProfile[m.user_id] = m.id;
+    }
+
+    // Se filtro por membro, converte user_id → profile.id para filtrar nas queries
+    const profileIdFilter = memberId ? userToProfile[memberId] : undefined;
 
     const [{ data: babyActs }, { data: taskActs }] = await Promise.all([
       supabase
@@ -284,11 +319,13 @@ export const mentalLoadService = {
 
     for (const act of babyActs ?? []) {
       if (!act.created_by) continue;
-      if (memberId && act.created_by !== memberId) continue;
+      if (profileIdFilter && act.created_by !== profileIdFilter) continue;
+      const userId = profileToUser[act.created_by];
+      if (!userId) continue;
       const actType = mapBabyActivityType(act.type);
       entries.push({
         id:            act.id,
-        member_id:     act.created_by,
+        member_id:     userId,
         title:         BABY_RECORD_LABELS[act.type] ?? act.type,
         category:      'baby',
         occurred_at:   act.started_at ?? act.created_at,
@@ -299,16 +336,18 @@ export const mentalLoadService = {
 
     for (const task of taskActs ?? []) {
       if (!task.completed_at) continue;
-      const responsibleId = task.completed_by ?? task.assigned_to;
-      if (!responsibleId) continue;
-      if (memberId && responsibleId !== memberId) continue;
+      const responsibleProfileId = task.completed_by ?? task.assigned_to;
+      if (!responsibleProfileId) continue;
+      if (profileIdFilter && responsibleProfileId !== profileIdFilter) continue;
+      const userId = profileToUser[responsibleProfileId];
+      if (!userId) continue;
       const taskType: MentalLoadActivityType =
         task.priority === 'high' ? 'task_high'
         : task.priority === 'medium' ? 'task_medium'
         : 'task_low';
       entries.push({
         id:          task.id,
-        member_id:   responsibleId,
+        member_id:   userId,
         title:       task.title,
         category:    task.category ?? 'other',
         occurred_at: task.completed_at,

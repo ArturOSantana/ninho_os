@@ -8,6 +8,14 @@ import { UUID } from '@/types/common.types';
 
 export type ReportPeriod = 'month' | 'all';
 
+export interface ReportPeriodOptions {
+  period: ReportPeriod;
+  /** Mês 1-12. Só relevante quando period === 'month'. Padrão: mês atual */
+  month?: number;
+  /** Ano completo (ex: 2025). Só relevante quando period === 'month'. Padrão: ano atual */
+  year?: number;
+}
+
 export interface ReportMemberRow {
   member_id: UUID;
   member_name: string;
@@ -118,16 +126,25 @@ const EXPENSE_CAT_LABELS: Record<string, string> = {
   other:         'Outros',
 };
 
+// ─── Helpers ──────────────────────────────────────────────────
+
+/** Retorna label capitalizado de categoria de gasto */
+export function expenseCatLabel(cat: string): string {
+  return EXPENSE_CAT_LABELS[cat] ?? (cat.charAt(0).toUpperCase() + cat.slice(1));
+}
+
 // ─── Service ──────────────────────────────────────────────────
 
 export const reportService = {
   /**
    * Gera relatório completo da família para um período.
-   * period = 'month' → mês corrente (1º ao último dia)
-   * period = 'all'   → sem filtro de data
+   * options.period = 'month' → mês/ano especificados (padrão: mês corrente)
+   * options.period = 'all'   → sem filtro de data
    */
-  async generate(familyId: UUID, period: ReportPeriod): Promise<FamilyReport> {
+  async generate(familyId: UUID, options: ReportPeriodOptions): Promise<FamilyReport> {
     const now = new Date();
+
+    const { period, month, year } = options;
 
     // Cálculo do range de datas
     let startIso: string | null = null;
@@ -135,11 +152,11 @@ export const reportService = {
     let periodLabel: string;
 
     if (period === 'month') {
-      const y = now.getFullYear();
-      const m = now.getMonth(); // 0-based
+      const y = year  ?? now.getFullYear();
+      const m = month != null ? month - 1 : now.getMonth(); // 0-based
       startIso = new Date(y, m, 1).toISOString();
       endIso   = new Date(y, m + 1, 0, 23, 59, 59, 999).toISOString();
-      periodLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      periodLabel = new Date(y, m, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     } else {
       periodLabel = 'Todo o período';
     }

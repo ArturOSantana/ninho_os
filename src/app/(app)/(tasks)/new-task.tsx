@@ -38,6 +38,23 @@ const PRIORITIES: PriorityOption[] = [
   { value: 'high',   label: 'Alta',   dotColor: Colors.primary,   activeColor: Colors.primary  + '33' },
 ];
 
+interface CategoryOption {
+  value: string;
+  label: string;
+  emoji: string;
+}
+
+// Categorias alinhadas com a Carga Mental — cada uma pesa diferente nos insights
+const CATEGORIES: CategoryOption[] = [
+  { value: 'other',    label: 'Geral',    emoji: '📋' },
+  { value: 'health',   label: 'Saúde',    emoji: '💊' },
+  { value: 'home',     label: 'Casa',     emoji: '🏠' },
+  { value: 'finance',  label: 'Finanças', emoji: '💰' },
+  { value: 'school',   label: 'Escola',   emoji: '🎒' },
+  { value: 'feeding',  label: 'Alimentação', emoji: '🍼' },
+  { value: 'personal', label: 'Pessoal',  emoji: '👤' },
+];
+
 const MONTHS_PT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 function pad(n: number) { return String(n).padStart(2, '0'); }
 
@@ -87,6 +104,7 @@ export default function NewTaskScreen() {
   const [description, setDescription] = useState('');
   const [priority,    setPriority]    = useState<TaskPriority>('medium');
   const [assignedTo,  setAssignedTo]  = useState<string | undefined>(undefined);
+  const [category,    setCategory]    = useState<string>('other');
 
   // Prazo — datepicker nativo
   const [hasDueDate,      setHasDueDate]      = useState(false);
@@ -117,6 +135,7 @@ export default function NewTaskScreen() {
         title:       title.trim(),
         description: description.trim() || undefined,
         priority,
+        category,
         assigned_to: assignedTo,
         due_date:    hasDueDate ? dueDate.toISOString() : undefined,
       });
@@ -172,7 +191,7 @@ export default function NewTaskScreen() {
         <TextInput
           value={title}
           onChangeText={setTitle}
-          placeholder="Ex: Ligar para o pediatra"
+          placeholder=""
           placeholderTextColor={Colors.border}
           style={inputStyle}
           autoFocus
@@ -385,12 +404,50 @@ export default function NewTaskScreen() {
           )}
         </View>
 
+        {/* ── Categoria ── */}
+        <FieldLabel label="Categoria" />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, marginBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {CATEGORIES.map((cat) => {
+            const active = category === cat.value;
+            return (
+              <TouchableOpacity
+                key={cat.value}
+                onPress={() => setCategory(cat.value)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Categoria ${cat.label}${active ? ', selecionada' : ''}`}
+                style={{
+                  flexDirection:   'row',
+                  alignItems:      'center',
+                  gap:             6,
+                  paddingVertical:  8,
+                  paddingHorizontal: 12,
+                  borderRadius:    20,
+                  borderWidth:     1,
+                  borderColor:     active ? Colors.primary : Colors.border,
+                  backgroundColor: active ? Colors.primary + '22' : Colors.card,
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>{cat.emoji}</Text>
+                <Text style={{ fontSize: 13, color: active ? Colors.primary : Colors.muted, fontWeight: active ? '500' : '400' }}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         {/* ── Descrição ── */}
         <FieldLabel label="Descrição (opcional)" />
         <TextInput
           value={description}
           onChangeText={setDescription}
-          placeholder="Detalhes da tarefa..."
+          placeholder=""
           placeholderTextColor={Colors.border}
           style={[inputStyle, { height: 88, textAlignVertical: 'top', paddingTop: 12 }]}
           multiline

@@ -1,3 +1,4 @@
+// src/components/ui/Button.tsx
 import React from 'react';
 import {
   TouchableOpacity,
@@ -5,6 +6,7 @@ import {
   ActivityIndicator,
   TouchableOpacityProps,
   ViewStyle,
+  View,
 } from 'react-native';
 import { Colors, Radius, FontSize } from '@/constants/theme';
 
@@ -14,6 +16,7 @@ interface ButtonProps extends TouchableOpacityProps {
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   fullWidth?: boolean;
+  leftIcon?: React.ReactNode;
 }
 
 export function Button({
@@ -24,59 +27,68 @@ export function Button({
   fullWidth = false,
   disabled,
   style,
+  leftIcon,
   ...props
 }: ButtonProps) {
   const sizeStyles: Record<string, ViewStyle> = {
-    sm: { paddingVertical: 8,  paddingHorizontal: 16 },
-    md: { paddingVertical: 14, paddingHorizontal: 24 },
-    lg: { paddingVertical: 18, paddingHorizontal: 32 },
+    sm: { paddingVertical: 7,  paddingHorizontal: 14 },
+    md: { paddingVertical: 12, paddingHorizontal: 20 },
+    lg: { paddingVertical: 15, paddingHorizontal: 28 },
   };
 
   const variantStyles: Record<string, ViewStyle> = {
     primary:   { backgroundColor: Colors.primary },
-    secondary: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+    secondary: { backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border },
     ghost:     { backgroundColor: 'transparent' },
-    danger:    { backgroundColor: Colors.error },
-    dashed:    { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed' },
+    danger:    { backgroundColor: '#3a1212', borderWidth: 1, borderColor: Colors.error },
+    dashed:    { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
   };
 
   const textColors: Record<string, string> = {
-    primary:   Colors.onLight,
+    primary:   Colors.textOnPrimary,
     secondary: Colors.text,
     ghost:     Colors.primary,
-    danger:    Colors.onLight,
+    danger:    Colors.error,
     dashed:    Colors.muted,
   };
 
   const fontSizes: Record<string, number> = {
     sm: FontSize.sm,
-    md: FontSize.lg,
-    lg: FontSize.xl,
+    md: FontSize.md,
+    lg: FontSize.lg,
   };
 
   return (
     <TouchableOpacity
       style={[
         {
-          borderRadius:    Radius.lg,
-          alignItems:      'center',
-          justifyContent:  'center',
-          flexDirection:   'row',
+          borderRadius:   Radius.md,
+          alignItems:     'center',
+          justifyContent: 'center',
+          flexDirection:  'row',
+          gap:            8,
         },
         sizeStyles[size],
         variantStyles[variant],
         fullWidth ? { width: '100%' } : undefined,
-        (disabled || loading) ? { opacity: 0.55 } : undefined,
+        (disabled || loading) ? { opacity: 0.45 } : undefined,
         style as ViewStyle,
       ]}
       disabled={disabled || loading}
-      activeOpacity={0.78}
+      activeOpacity={0.75}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={textColors[variant]} style={{ marginRight: 8 }} />
+        <ActivityIndicator size="small" color={textColors[variant]} />
+      ) : leftIcon ? (
+        <View>{leftIcon}</View>
       ) : null}
-      <Text style={{ color: textColors[variant], fontSize: fontSizes[size], fontWeight: '500', letterSpacing: 0.2 }}>
+      <Text style={{
+        color:       textColors[variant],
+        fontSize:    fontSizes[size],
+        fontWeight:  '500',
+        letterSpacing: 0.1,
+      }}>
         {title}
       </Text>
     </TouchableOpacity>

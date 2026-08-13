@@ -6,8 +6,25 @@ import {
   CreateTaskInput,
   UpdateTaskInput,
   TaskFilters,
+  TaskRecurrence,
   UUID,
 } from '@/types';
+
+/**
+ * Dado um due_date ISO e uma recorrência, retorna o próximo due_date.
+ * Retorna undefined se recurrence for 'none' ou undefined.
+ */
+function nextDueDate(dueDate: string, recurrence: TaskRecurrence): string | undefined {
+  if (!recurrence || recurrence === 'none') return undefined;
+  const d = new Date(dueDate);
+  switch (recurrence) {
+    case 'daily':   d.setDate(d.getDate() + 1);      break;
+    case 'weekly':  d.setDate(d.getDate() + 7);      break;
+    case 'monthly': d.setMonth(d.getMonth() + 1);    break;
+    case 'yearly':  d.setFullYear(d.getFullYear() + 1); break;
+  }
+  return d.toISOString();
+}
 
 /**
  * Tasks Service - CRUD de tarefas familiares (tasks)
@@ -65,6 +82,7 @@ export const tasksService = {
         priority: input.priority ?? 'medium',
         due_date: input.due_date ?? null,
         category: input.category ?? 'other',
+        recurrence: input.recurrence && input.recurrence !== 'none' ? input.recurrence : null,
         created_by: profile.id,
       })
       .select()
@@ -91,7 +109,8 @@ export const tasksService = {
 
   /**
    * Concluir tarefa — UC019
-   * Grava status=done + completed_by (profile.id) + completed_at
+   * Grava status=done + completed_by (profile.id) + completed_at.
+   * Se a tarefa tiver recorrência, cria a próxima ocorrência automaticamente.
    */
   async completeTask(id: UUID): Promise<Task> {
     const { data: auth } = await supabase.auth.getUser();
@@ -105,11 +124,49 @@ export const tasksService = {
 
     if (profileError || !profile) throw new Error('Perfil não encontrado');
 
-    return tasksService.updateTask(id, {
+    // Busca a tarefa antes de concluir para checar recorrência
+    const { data: taskData } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    const completed = await tasksService.updateTask(id, {
       status: 'done',
       completed_by: profile.id,
       completed_at: new Date().toISOString(),
     });
+
+    // Gera próxima ocorrência se tarefa for recorrente
+    if (taskData) {
+      const task = taskData as Task;
+      const recurrence = task.recurrence;
+      if (recurrence && recurrence !== 'none') {
+        const baseDue = task.due_date ?? new Date().toISOString();
+        const newDue  = nextDueDate(baseDue, recurrence);
+        if (newDue) {
+          // Cria nova ocorrência silenciosamente (falha não bloqueia a conclusão)
+          void (async () => {
+            try {
+              await supabase.from('tasks').insert({
+                family_id:   task.family_id,
+                title:       task.title,
+                description: task.description ?? null,
+                assigned_to: task.assigned_to ?? null,
+                status:      'pending',
+                priority:    task.priority,
+                due_date:    newDue,
+                category:    task.category,
+                recurrence:  recurrence,
+                created_by:  profile.id,
+              });
+            } catch { /* silencioso */ }
+          })();
+        }
+      }
+    }
+
+    return completed;
   },
 
   /**

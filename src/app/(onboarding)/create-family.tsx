@@ -61,6 +61,8 @@ export default function CreateFamilyScreen() {
           returnKeyType="done"
           onSubmitEditing={handleSubmit}
           maxLength={60}
+          accessibilityLabel="Nome da família"
+          accessibilityHint="Digite o nome que identifica a sua família"
         />
       </View>
 
@@ -69,6 +71,9 @@ export default function CreateFamilyScreen() {
         onPress={handleSubmit}
         disabled={!name.trim() || isLoading}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Continuar"
+        accessibilityState={{ disabled: !name.trim() || isLoading }}
       >
         {isLoading
           ? <ActivityIndicator color={Colors.onLight} />

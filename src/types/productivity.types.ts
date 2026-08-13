@@ -40,6 +40,9 @@ export interface UpdateEventInput extends Partial<CreateEventInput> {}
 export type TaskStatus   = 'pending' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
+/** Frequência de repetição de tarefa (alinhada com EventRecurrence) */
+export type TaskRecurrence = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
 export interface Task {
   id: UUID;
   family_id: UUID;
@@ -51,6 +54,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   due_date?: string;   // ISO 8601
+  recurrence?: TaskRecurrence; // opcional — ausente = 'none'
   points: number;
   category: string;
   created_by: UUID;
@@ -64,6 +68,7 @@ export interface CreateTaskInput {
   priority: TaskPriority;
   due_date?: string;
   category?: string;
+  recurrence?: TaskRecurrence;
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {

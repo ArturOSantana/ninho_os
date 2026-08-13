@@ -4,6 +4,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -18,6 +19,8 @@ import {
   IconCalendar,
   IconChartBar,
   IconCheckbox,
+  IconChevronLeft,
+  IconChevronRight,
   IconCircleCheck,
   IconClock,
   IconDeviceGamepad2,
@@ -39,6 +42,7 @@ import {
   ReportBabyRow,
   ReportChildRow,
   ReportPeriod,
+  ReportPeriodOptions,
 } from '@/services/report/reportService';
 import { exportReportPdf } from '@/services/report/reportPdf';
 
@@ -51,6 +55,16 @@ function fmtCents(cents: number): string {
 function cap(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+const MONTH_NAMES_SHORT = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+];
+
+const MONTH_NAMES_FULL = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
 
 // ─── Primitivos de UI ────────────────────────────────────────
 
@@ -126,6 +140,116 @@ function Card({ children, accentBorder }: { children: React.ReactNode; accentBor
   );
 }
 
+// ─── MonthPickerModal ─────────────────────────────────────────
+
+interface MonthPickerModalProps {
+  visible: boolean;
+  selectedMonth: number; // 1-12
+  selectedYear: number;
+  onSelect: (month: number, year: number) => void;
+  onClose: () => void;
+}
+
+function MonthPickerModal({ visible, selectedMonth, selectedYear, onSelect, onClose }: MonthPickerModalProps) {
+  const [viewYear, setViewYear] = useState(selectedYear);
+  const insets = useSafeAreaInsets();
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  // Não permite navegar para o futuro
+  const canGoForward = viewYear < currentYear || (viewYear === currentYear);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', alignItems: 'center' }}
+      >
+        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+          <View style={{
+            backgroundColor: Colors.bgCard,
+            borderRadius: Radius.xl,
+            borderWidth: 1,
+            borderColor: Colors.border,
+            padding: Spacing.xl,
+            width: 320,
+            gap: Spacing.lg,
+          }}>
+            {/* Cabeçalho ano */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                onPress={() => setViewYear((y) => y - 1)}
+                style={{ padding: 6, borderRadius: Radius.md, backgroundColor: Colors.border + '44' }}
+              >
+                <IconChevronLeft size={18} color={Colors.muted} />
+              </TouchableOpacity>
+
+              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: '700', fontFamily: 'Georgia' }}>
+                {viewYear}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setViewYear((y) => Math.min(currentYear, y + 1))}
+                disabled={viewYear >= currentYear}
+                style={{ padding: 6, borderRadius: Radius.md, backgroundColor: viewYear >= currentYear ? 'transparent' : Colors.border + '44' }}
+              >
+                <IconChevronRight size={18} color={viewYear >= currentYear ? Colors.border : Colors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Grade de meses */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {MONTH_NAMES_SHORT.map((name, idx) => {
+                const m = idx + 1;
+                const isFuture = viewYear > currentYear || (viewYear === currentYear && m > currentMonth);
+                const isSelected = m === selectedMonth && viewYear === selectedYear;
+                const isCurrentMonth = m === currentMonth && viewYear === currentYear;
+
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    disabled={isFuture}
+                    onPress={() => { onSelect(m, viewYear); onClose(); }}
+                    style={{
+                      width: '22%',
+                      aspectRatio: 1.6,
+                      borderRadius: Radius.md,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isSelected ? Colors.primary : isCurrentMonth ? Colors.primaryBg : Colors.bg,
+                      borderWidth: isCurrentMonth && !isSelected ? 1 : 0,
+                      borderColor: Colors.primary,
+                      opacity: isFuture ? 0.3 : 1,
+                    }}
+                  >
+                    <Text style={{
+                      color: isSelected ? '#fff' : isCurrentMonth ? Colors.primary : Colors.textSecondary,
+                      fontSize: FontSize.sm,
+                      fontWeight: isSelected || isCurrentMonth ? '700' : '400',
+                    }}>
+                      {name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Botão cancelar */}
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20 }}
+            >
+              <Text style={{ color: Colors.muted, fontSize: FontSize.sm }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 // ─── Tela principal ──────────────────────────────────────────
 
 export default function ReportScreen() {
@@ -134,13 +258,37 @@ export default function ReportScreen() {
   const { family } = useFamily();
   const { report, loading, error, generate } = useReport(family?.id);
 
-  const [period, setPeriod]       = useState<ReportPeriod>('month');
-  const [exporting, setExporting] = useState(false);
+  const now = new Date();
+  const [period, setPeriod]             = useState<ReportPeriod>('month');
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear]   = useState(now.getFullYear());
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [exporting, setExporting]         = useState(false);
 
-  const handleGenerate = useCallback((p: ReportPeriod) => {
+  const periodLabel = useMemo(() => {
+    if (period === 'all') return 'Todo período';
+    return `${MONTH_NAMES_FULL[selectedMonth - 1]} ${selectedYear}`;
+  }, [period, selectedMonth, selectedYear]);
+
+  const handleGenerate = useCallback((p: ReportPeriod, month?: number, year?: number) => {
+    const opts: ReportPeriodOptions = {
+      period: p,
+      month: p === 'month' ? (month ?? selectedMonth) : undefined,
+      year:  p === 'month' ? (year  ?? selectedYear)  : undefined,
+    };
+    generate(opts);
+  }, [generate, selectedMonth, selectedYear]);
+
+  const handleSelectPeriod = useCallback((p: ReportPeriod) => {
     setPeriod(p);
-    generate(p);
-  }, [generate]);
+    handleGenerate(p);
+  }, [handleGenerate]);
+
+  const handleMonthSelect = useCallback((month: number, year: number) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    if (period === 'month') handleGenerate('month', month, year);
+  }, [period, handleGenerate]);
 
   const handleExport = useCallback(async () => {
     if (!report) return;
@@ -202,46 +350,87 @@ export default function ReportScreen() {
           )}
         </View>
 
-        {/* ── Seletor de período ───────────────────────────────── */}
+        {/* ── Filtro de período ────────────────────────────────── */}
         <View style={{
-          flexDirection: 'row',
           backgroundColor: Colors.bgCard,
           borderRadius: Radius.lg,
           borderWidth: 1,
           borderColor: Colors.border,
-          padding: 4,
-          gap: 4,
+          padding: Spacing.md,
           marginBottom: Spacing.xl,
+          gap: Spacing.md,
         }}>
-          {(['month', 'all'] as ReportPeriod[]).map((p) => {
-            const active = period === p && !!report;
-            return (
-              <TouchableOpacity
-                key={p}
-                onPress={() => handleGenerate(p)}
-                activeOpacity={0.8}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: Radius.md,
-                  alignItems: 'center',
-                  backgroundColor: active ? Colors.primary : 'transparent',
-                }}
-              >
-                <Text style={{ color: active ? '#fff' : Colors.muted, fontSize: FontSize.md, fontWeight: active ? '600' : '400' }}>
-                  {p === 'month' ? 'Este mês' : 'Todo período'}
+          {/* Toggle Mês / Todo período */}
+          <View style={{ flexDirection: 'row', backgroundColor: Colors.bg, borderRadius: Radius.md, padding: 3, gap: 3 }}>
+            {(['month', 'all'] as ReportPeriod[]).map((p) => {
+              const active = period === p;
+              return (
+                <TouchableOpacity
+                  key={p}
+                  onPress={() => handleSelectPeriod(p)}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 9,
+                    borderRadius: Radius.sm,
+                    alignItems: 'center',
+                    backgroundColor: active ? Colors.primary : 'transparent',
+                  }}
+                >
+                  <Text style={{
+                    color: active ? '#fff' : Colors.muted,
+                    fontSize: FontSize.sm,
+                    fontWeight: active ? '700' : '400',
+                  }}>
+                    {p === 'month' ? 'Por mês' : 'Todo período'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Seletor de mês — só quando period === 'month' */}
+          {period === 'month' && (
+            <TouchableOpacity
+              onPress={() => setMonthPickerOpen(true)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: Colors.bg,
+                borderRadius: Radius.md,
+                borderWidth: 1,
+                borderColor: Colors.borderMid,
+                paddingHorizontal: Spacing.lg,
+                paddingVertical: Spacing.md,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <IconCalendar size={16} color={Colors.primary} />
+                <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: '600' }}>
+                  {periodLabel}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: Colors.muted, fontSize: FontSize.xs }}>alterar</Text>
+                <IconChevronRight size={14} color={Colors.muted} />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Sem dados ─────────────────────────────────────────── */}
         {!report && !loading && !error && (
           <View style={{ alignItems: 'center', paddingVertical: 60, gap: Spacing.lg }}>
-            <IconChartBar size={48} color={Colors.border} />
-            <Text style={{ color: Colors.muted, fontSize: FontSize.lg, textAlign: 'center' }}>
-              Selecione um período acima{'\n'}para gerar o relatório.
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.primaryBg, alignItems: 'center', justifyContent: 'center' }}>
+              <IconFileReport size={32} color={Colors.primary} />
+            </View>
+            <Text style={{ color: Colors.textSecondary, fontSize: FontSize.lg, textAlign: 'center', fontWeight: '600' }}>
+              Nenhum relatório gerado
+            </Text>
+            <Text style={{ color: Colors.muted, fontSize: FontSize.md, textAlign: 'center', lineHeight: 20 }}>
+              Selecione o período acima e toque em{'\n'}"Por mês" ou "Todo período" para gerar.
             </Text>
           </View>
         )}
@@ -275,6 +464,15 @@ export default function ReportScreen() {
           <ReportContent report={report} tasksDoneRate={tasksDoneRate} shoppingRate={shoppingRate} />
         )}
       </ScrollView>
+
+      {/* ── Month Picker Modal ───────────────────────────────── */}
+      <MonthPickerModal
+        visible={monthPickerOpen}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onSelect={handleMonthSelect}
+        onClose={() => setMonthPickerOpen(false)}
+      />
     </View>
   );
 }
@@ -301,7 +499,9 @@ function ReportContent({
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <IconCalendar size={14} color={Colors.secondary} />
-          <Text style={{ color: Colors.secondary, fontSize: FontSize.sm }}>{cap(report.period_label)}</Text>
+          <Text style={{ color: Colors.secondary, fontSize: FontSize.sm, fontWeight: '600' }}>
+            {cap(report.period_label)}
+          </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <IconClock size={12} color={Colors.muted} />
