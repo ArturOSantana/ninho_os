@@ -31,8 +31,9 @@ export default function EditBabyScreen() {
   }>();
   const { currentBaby, updateBaby } = useFamily();
 
-  const [name, setName] = useState(type === 'child' ? (paramName ?? '') : (currentBaby?.name ?? ''));
-  const [birthDate, setBirthDate] = useState(type === 'child' ? (paramBirthDate ?? '') : (currentBaby?.birth_date ?? ''));
+  // Usa os params quando disponíveis (baby e child), senão cai no contexto como fallback
+  const [name, setName] = useState(paramName ?? currentBaby?.name ?? '');
+  const [birthDate, setBirthDate] = useState(paramBirthDate ?? currentBaby?.birth_date ?? '');
   const [loading, setLoading] = useState(false);
 
   // Aceita qualquer texto — valida apenas no save
@@ -72,10 +73,12 @@ export default function EditBabyScreen() {
         if (!id) throw new Error('ID do filho não encontrado');
         await familyService.updateChildProfile(id, name.trim(), birthDate);
       } else {
-        if (!currentBaby) return;
+        // baby: usa id do param se disponível, senão cai no currentBaby
+        const babyId = id ?? currentBaby?.id;
+        if (!babyId) return;
         const updates: { name: string; birth_date?: string } = { name: name.trim() };
         if (birthDate) updates.birth_date = birthDate;
-        await updateBaby(currentBaby.id, updates);
+        await updateBaby(babyId, updates);
       }
       router.back();
     } catch (err: any) {

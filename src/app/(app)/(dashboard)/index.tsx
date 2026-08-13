@@ -777,14 +777,15 @@ export default function DashboardScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       setBabyInfoOpen(false);
-                      if (selectedModalItem.type === 'baby') {
-                        router.push('/(app)/(baby)/edit-baby' as never);
-                      } else {
-                        router.push({
-                          pathname: '/(app)/(baby)/edit-baby',
-                          params: { type: 'child', id: selectedModalItem.id, name: selectedModalItem.name, birth_date: selectedModalItem.birth_date ?? '' },
-                        } as never);
-                      }
+                      router.push({
+                        pathname: '/(app)/(baby)/edit-baby',
+                        params: {
+                          type:       selectedModalItem.type,
+                          id:         selectedModalItem.id,
+                          name:       selectedModalItem.name,
+                          birth_date: selectedModalItem.birth_date ?? '',
+                        },
+                      } as never);
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm }}
                   >
