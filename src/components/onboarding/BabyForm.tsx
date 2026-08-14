@@ -221,40 +221,73 @@ export const BabyForm: React.FC<BabyFormProps> = ({
         <Text className="text-sm font-semibold text-white mb-2">
           Data de Nascimento
         </Text>
-        <TouchableOpacity
-          onPress={() => setShowDatePicker(true)}
-          disabled={isLoading || submitting}
-          accessibilityRole="button"
-          accessibilityLabel={`Data de nascimento: ${birthDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}. Toque para alterar.`}
-          className={`border px-4 py-3 rounded-lg ${
-            fieldErrors.birthDate ? 'border-red-400' : 'border-white/30'
-          }`}
-        >
-          <Text className="text-base" style={{ color: '#ffffff' }}>
-            {birthDate.toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })}
-          </Text>
-        </TouchableOpacity>
+
+        {Platform.OS === 'web' ? (
+          <input
+            type="date"
+            value={birthDate.toISOString().slice(0, 10)}
+            min={minDate.toISOString().slice(0, 10)}
+            max={today.toISOString().slice(0, 10)}
+            disabled={isLoading || submitting}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const d = new Date(e.target.value + 'T12:00:00');
+              setBirthDate(d);
+              const err = validateBirthDate(d);
+              setFieldErrors((prev) => ({ ...prev, birthDate: err }));
+            }}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              border: fieldErrors.birthDate ? '1px solid #f87171' : '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 8,
+              padding: '12px 16px',
+              color: '#ffffff',
+              fontSize: 16,
+              width: '100%',
+              display: 'block',
+              outline: 'none',
+              colorScheme: 'dark',
+            } as any}
+          />
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              disabled={isLoading || submitting}
+              accessibilityRole="button"
+              accessibilityLabel={`Data de nascimento: ${birthDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}. Toque para alterar.`}
+              className={`border px-4 py-3 rounded-lg ${
+                fieldErrors.birthDate ? 'border-red-400' : 'border-white/30'
+              }`}
+            >
+              <Text className="text-base" style={{ color: '#ffffff' }}>
+                {birthDate.toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={birthDate}
+                mode="date"
+                display="spinner"
+                {...(Platform.OS === 'android'
+                  ? { onValueChange: handleDateValueChange, onDismiss: handleDateDismiss }
+                  : { onChange: handleDateChange })}
+                minimumDate={minDate}
+                maximumDate={today}
+              />
+            )}
+          </>
+        )}
+
         {!!fieldErrors.birthDate && (
           <Text className="text-xs text-red-400 mt-1">
             {fieldErrors.birthDate}
           </Text>
-        )}
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={birthDate}
-            mode="date"
-            display="spinner"
-            {...(Platform.OS === 'android'
-              ? { onValueChange: handleDateValueChange, onDismiss: handleDateDismiss }
-              : { onChange: handleDateChange })}
-            minimumDate={minDate}
-            maximumDate={today}
-          />
         )}
       </View>
 
