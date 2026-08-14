@@ -177,10 +177,15 @@ export function AddChildForm({ visible, saving = false, onClose, onSubmit }: Pro
   };
 
   const handleDateChange = (_: DateTimePickerEvent, selected?: Date) => {
-    // No Android o picker fecha sozinho; no iOS mantemos aberto
-    if (Platform.OS === 'android') setShowPicker(false);
     if (selected) setBirthDate(selected);
   };
+
+  const handleDateValueChange = (_: any, selected?: Date) => {
+    setShowPicker(false);
+    if (selected) setBirthDate(selected);
+  };
+
+  const handleDateDismiss = () => setShowPicker(false);
 
   return (
     <Modal
@@ -378,7 +383,9 @@ export function AddChildForm({ visible, saving = false, onClose, onSubmit }: Pro
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={new Date()}
-            onChange={handleDateChange}
+            {...(Platform.OS === 'android'
+              ? { onValueChange: handleDateValueChange, onDismiss: handleDateDismiss }
+              : { onChange: handleDateChange })}
             textColor={Colors.text}
           />
         )}
